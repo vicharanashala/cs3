@@ -47,7 +47,7 @@ CREATE TABLE IF NOT EXISTS search_logs (
 );
 
 -- Step 4 — Create indexes for performance
-CREATE INDEX IF NOT EXISTS faqs_embedding_idx ON faqs USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
-CREATE INDEX IF NOT EXISTS search_logs_matched_faq_id_idx ON search_logs (matched_faq_id);
-CREATE INDEX IF NOT EXISTS search_logs_timestamp_idx ON search_logs (timestamp);
-CREATE INDEX IF NOT EXISTS faqs_is_onboarding_faq_idx ON faqs (is_onboarding_faq) WHERE is_onboarding_faq = true;
+CREATE INDEX ON faqs USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
+CREATE INDEX ON search_logs (matched_faq_id);
+CREATE INDEX ON search_logs (timestamp);
+CREATE INDEX ON faqs (is_onboarding_faq) WHERE is_onboarding_faq = true;

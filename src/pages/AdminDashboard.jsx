@@ -160,7 +160,7 @@ export function AdminDashboard() {
               type="password"
               value={adminKey}
               onChange={(e) => setAdminKey(e.target.value)}
-              placeholder="System Admin Key"
+              placeholder="Enter admin key"
               className="w-full px-3.5 py-2.5 bg-white border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-[#111827] focus:border-[#111827] text-sm text-center"
               required
             />
@@ -271,15 +271,15 @@ export function AdminDashboard() {
               <tbody>
                 {heatmapData.map((row, index) => {
                   const conf = parseFloat(row.avg_confidence);
-                  let colorClass = 'bg-red-50 text-red-700 border-red-100'; // red
-                  if (conf >= 0.85) colorClass = 'bg-green-50 text-green-700 border-green-100'; // green
-                  else if (conf >= 0.70) colorClass = 'bg-amber-50 text-amber-700 border-amber-100'; // amber
+                  let cellStyle = { backgroundColor: '#FFF5F5', color: '#991b1b' }; // red < 0.70
+                  if (conf >= 0.85) cellStyle = { backgroundColor: '#F0FFF4', color: '#166534' }; // green
+                  else if (conf >= 0.70) cellStyle = { backgroundColor: '#FFFBEB', color: '#92400e' }; // amber
 
                   return (
                     <tr key={index} className="border-b border-gray-100 hover:bg-gray-50 transition">
                       <td className="py-3 px-4 font-semibold text-[#111827]">{row.category || 'General'}</td>
                       <td className="py-3 px-4">
-                        <span className={`px-2.5 py-1 rounded-full font-bold border ${colorClass}`}>
+                        <span className="px-2.5 py-1 rounded-full font-bold" style={cellStyle}>
                           {Math.round(conf * 100)}%
                         </span>
                       </td>

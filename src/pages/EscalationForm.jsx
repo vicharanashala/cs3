@@ -41,11 +41,11 @@ export function EscalationForm() {
   const calculateScore = (subj, desc) => {
     let score = 0;
     if (!subj || !desc) return 0;
-    if (desc.trim().split(/\s+/).length > 20) score += 1;
+    if (desc.split(' ').length > 20) score += 1;
     if (desc.includes('?')) score += 1;
     if (/expected|actual|should|but/i.test(desc)) score += 1;
     if (desc.length > 100) score += 1;
-    if (subj.trim().split(/\s+/).length >= 3) score += 1;
+    if (subj.split(' ').length >= 3) score += 1;
     return score;
   };
 

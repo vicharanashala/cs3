@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 import rehypeSanitize from 'rehype-sanitize';
 import { 
-  Send, Bot, TrendingUp, AlertTriangle, Copy, Check, Info 
+  Send, Bot, TrendingUp, AlertTriangle, Clipboard, Check, Info 
 } from 'lucide-react';
 import { useApp } from '../store/AppContext';
 import { askAI } from '../services/api';
@@ -28,7 +29,7 @@ function CopyButton({ text }) {
       className="absolute top-2 right-2 p-1.5 bg-white border border-gray-200 hover:border-gray-300 text-gray-500 hover:text-[#111827] rounded shadow-xs transition duration-150 z-10"
       title="Copy to clipboard"
     >
-      {copied ? <Check className="w-3.5 h-3.5 text-green-600" /> : <Copy className="w-3.5 h-3.5" />}
+      {copied ? <Check className="w-3.5 h-3.5 text-green-600" /> : <Clipboard className="w-3.5 h-3.5" />}
     </button>
   );
 }
@@ -262,9 +263,9 @@ export function YakshaAI() {
                 <span>Yaksha is searching...</span>
               </div>
               <div className="bg-white border border-gray-100 rounded-lg p-4 w-[60%] shadow-sm space-y-3">
-                <div className="h-4 bg-gray-200 rounded animate-pulse blur-[1px] w-[100%]" />
-                <div className="h-4 bg-gray-200 rounded animate-pulse blur-[1px] w-[80%]" />
-                <div className="h-4 bg-gray-200 rounded animate-pulse blur-[1px] w-[60%]" />
+                <div className="animate-pulse w-[100%]" style={{ background: '#E5E7EB', borderRadius: '4px', height: '16px', filter: 'blur(3px)' }} />
+                <div className="animate-pulse w-[80%]" style={{ background: '#E5E7EB', borderRadius: '4px', height: '16px', filter: 'blur(3px)' }} />
+                <div className="animate-pulse w-[60%]" style={{ background: '#E5E7EB', borderRadius: '4px', height: '16px', filter: 'blur(3px)' }} />
               </div>
             </div>
           )}
@@ -283,7 +284,7 @@ export function YakshaAI() {
                 handleSubmit(e);
               }
             }}
-            placeholder="Ask Yaksha anything (e.g., How do I reset database connection pool?)"
+            placeholder="Ask Yaksha anything..."
             className="flex-1 bg-white border border-gray-200 rounded-lg py-3 px-4 text-sm text-[#111827] placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-[#111827] focus:border-[#111827] resize-none h-12 min-h-[48px] max-h-[120px]"
             disabled={isLoading}
           />

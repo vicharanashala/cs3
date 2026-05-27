@@ -207,7 +207,7 @@ export function FAQPortal() {
               <div className="p-2 bg-[#111827] text-white rounded">
                 <BookOpen className="w-5 h-5" />
               </div>
-              <h2 className="text-lg font-semibold tracking-tight">Start Here: Onboarding Guide</h2>
+              <h2 className="text-lg font-semibold tracking-tight">Start Here</h2>
             </div>
             
             <motion.div layout className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -395,7 +395,7 @@ export function FAQPortal() {
                       </div>
 
                       {/* Question */}
-                      <h4 className="font-bold text-[#111827] text-sm leading-snug">{faq.question}</h4>
+                      <h4 className="font-medium text-[#111827] text-sm leading-snug">{faq.question}</h4>
                       
                       {/* Short summary always shown */}
                       {faq.short_answer && !isExpanded && (
@@ -546,7 +546,7 @@ export function FAQPortal() {
                         <div className="bg-[#FFF5F5] border border-red-100 rounded-md p-4 flex flex-col justify-between">
                           <div>
                             <span className="text-[9px] bg-red-100 text-red-800 font-bold px-1.5 py-0.5 rounded tracking-wide uppercase">
-                              Previous Version
+                              Previous
                             </span>
                             <p className="text-xs text-red-950 mt-3 whitespace-pre-line leading-relaxed">
                               {hist.previous_answer}
@@ -558,7 +558,7 @@ export function FAQPortal() {
                         <div className="bg-[#F5FFF7] border border-green-100 rounded-md p-4 flex flex-col justify-between">
                           <div>
                             <span className="text-[9px] bg-green-100 text-green-800 font-bold px-1.5 py-0.5 rounded tracking-wide uppercase">
-                              Current Version
+                              Current
                             </span>
                             <p className="text-xs text-green-950 mt-3 whitespace-pre-line leading-relaxed">
                               {historyModalFaq.answer}

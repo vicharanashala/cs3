@@ -4,15 +4,11 @@ export function QualityMeter({ description = '', subject = '' }) {
   // Score computation logic on every render
   const getScore = () => {
     let score = 0;
-    const descWords = description.trim().split(/\s+/).filter(Boolean);
-    const subjWords = subject.trim().split(/\s+/).filter(Boolean);
-
-    if (descWords.length > 20) score += 1;
+    if (description.split(' ').length > 20) score += 1;
     if (description.includes('?')) score += 1;
     if (/expected|actual|should|but/i.test(description)) score += 1;
     if (description.length > 100) score += 1;
-    if (subjWords.length >= 3) score += 1;
-
+    if (subject.split(' ').length >= 3) score += 1;
     return score;
   };
 
