@@ -1,0 +1,19 @@
+{
+  "name": "samagama-backend",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node --watch index.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.1",
+    "express": "^4.18.2",
+    "lru-cache": "^10.2.0",
+    "openai": "^4.28.0",
+    "pg": "^8.11.3",
+    "pgvector": "^0.1.8"
+  }
+}

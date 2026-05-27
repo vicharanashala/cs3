@@ -1,0 +1,339 @@
+import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
+import ReactMarkdown from 'react-markdown';
+import rehypeSanitize from 'rehype-sanitize';
+import { 
+  Send, Bot, TrendingUp, AlertTriangle, Copy, Check, Info 
+} from 'lucide-react';
+import { useApp } from '../store/AppContext';
+import { askAI } from '../services/api';
+
+// Helper component for copying code block contents
+function CopyButton({ text }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  return (
+    <button
+      onClick={handleCopy}
+      className="absolute top-2 right-2 p-1.5 bg-white border border-gray-200 hover:border-gray-300 text-gray-500 hover:text-[#111827] rounded shadow-xs transition duration-150 z-10"
+      title="Copy to clipboard"
+    >
+      {copied ? <Check className="w-3.5 h-3.5 text-green-600" /> : <Copy className="w-3.5 h-3.5" />}
+    </button>
+  );
+}
+
+export function YakshaAI() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { 
+    isLoading, setIsLoading, 
+    confidenceHistory, pushConfidence, 
+    setLastFailedQuery 
+  } = useApp();
+
+  const [inputVal, setInputVal] = useState('');
+
+  // Check for pre-fill parameters on load
+  useEffect(() => {
+    if (location.state?.query) {
+      setInputVal(location.state.query);
+      // Clear location state after consumption to prevent refilling on reload
+      window.history.replaceState({}, document.title);
+    }
+  }, [location]);
+  const [messages, setMessages] = useState([
+    { role: 'assistant', content: 'Greeting seeker. I am **Yaksha**, the Samagama semantic intelligence. Ask me anything, and I shall query the vectors.', confidence: 1.0 }
+  ]);
+
+  // Escape Hatch tracking states
+  const [lastQueryTime, setLastQueryTime] = useState(0);
+  const [queryCount, setQueryCount] = useState(0);
+  const [showEscapeBanner, setShowEscapeBanner] = useState(false);
+  const [failedQueryText, setFailedQueryText] = useState('');
+
+  const chatEndRef = useRef(null);
+
+  // Auto-scroll chat window
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages, isLoading]);
+
+  // 1. Submit Question to Yaksha AI
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!inputVal.trim() || isLoading) return;
+
+    const userQuery = inputVal.trim();
+    setFailedQueryText(userQuery);
+    setInputVal('');
+
+    // Update messages history with user's question
+    const updatedMessages = [...messages, { role: 'user', content: userQuery }];
+    setMessages(updatedMessages);
+    setIsLoading(true);
+
+    // Escape hatch check 2: 3 or more queries in 8 seconds
+    const now = Date.now();
+    let currentQueryCount = queryCount + 1;
+    if (now - lastQueryTime > 8000) {
+      currentQueryCount = 1;
+    }
+    setQueryCount(currentQueryCount);
+    setLastQueryTime(now);
+
+    try {
+      const response = await askAI(userQuery);
+      
+      if (response.success) {
+        const aiScore = parseFloat(response.confidence) || 0.0;
+        
+        // Push confidence score to global history
+        pushConfidence(aiScore);
+
+        setMessages(prev => [...prev, {
+          role: 'assistant',
+          content: response.answer || 'No matched FAQ answers could be extracted.',
+          confidence: aiScore
+        }]);
+
+        // Escape hatch triggers:
+        // Trigger 1: score < 0.50
+        // Trigger 2: 3 queries in 8 seconds
+        // Trigger 3: backend source is "escalation" (which means score < 0.70)
+        const meetsThresholdEscape = aiScore < 0.50;
+        const meetsRageEscape = currentQueryCount >= 3 && (now - lastQueryTime <= 8000);
+        const meetsBackendEscalation = response.source === 'escalation';
+
+        if (meetsThresholdEscape || meetsRageEscape || meetsBackendEscalation) {
+          setShowEscapeBanner(true);
+          setLastFailedQuery(userQuery);
+        }
+      }
+    } catch (err) {
+      console.error(err);
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: 'Apologies. A semantic service outage occurred. Please raise a ticket.',
+        confidence: 0.0
+      }]);
+      setShowEscapeBanner(true);
+      setLastFailedQuery(userQuery);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Trigger escape hatch navigation
+  const handleEscapeHatch = () => {
+    setLastFailedQuery(failedQueryText);
+    navigate('/escalate');
+  };
+
+  // Sparkline coordinates mapping helper
+  const renderSparkline = () => {
+    if (confidenceHistory.length === 0) {
+      return <polyline points="5,16 115,16" stroke="#E5E7EB" strokeWidth="1.5" fill="none" />;
+    }
+    
+    // Map each confidence score into SVG view coordinates
+    const points = confidenceHistory.map((score, index) => {
+      const x = confidenceHistory.length > 1 
+        ? (index / (confidenceHistory.length - 1)) * 110 + 5 
+        : 60;
+      const y = 32 - (score * 28) + 2; // scale 0-1 into viewBox height 2-30
+      return `${x},${y}`;
+    }).join(' ');
+
+    return <polyline points={points} stroke="#111827" strokeWidth="1.5" fill="none" />;
+  };
+
+  const getLatestConfidencePct = () => {
+    if (confidenceHistory.length === 0) return '0%';
+    const latest = confidenceHistory[confidenceHistory.length - 1];
+    return `${Math.round(latest * 100)}%`;
+  };
+
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+      {/* LEFT COLUMN: CHAT INTERFACE */}
+      <div className="lg:col-span-3 space-y-4 flex flex-col h-[75vh]">
+        {/* Escape Hatch Banner */}
+        <AnimatePresence>
+          {showEscapeBanner && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="bg-[#FEF9C3] border border-yellow-200 text-yellow-900 px-4 py-3 rounded-lg flex items-center justify-between text-xs md:text-sm shadow-sm"
+            >
+              <div className="flex items-center space-x-2">
+                <AlertTriangle className="w-4 h-4 text-yellow-700 shrink-0" />
+                <span className="font-medium">Looks like you need more help. Our support engineers are standing by.</span>
+              </div>
+              <button
+                onClick={handleEscapeHatch}
+                className="bg-[#111827] text-white hover:bg-black font-semibold px-3 py-1.5 rounded transition shrink-0 ml-4"
+              >
+                Raise a Ticket →
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Message logs area */}
+        <div className="flex-1 border border-gray-200 rounded-lg p-5 overflow-y-auto bg-white space-y-6">
+          {messages.map((msg, index) => (
+            <div 
+              key={index}
+              className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}
+            >
+              <div className="flex items-center space-x-1.5 text-xs text-gray-400 mb-1">
+                {msg.role === 'assistant' ? (
+                  <>
+                    <Bot className="w-3.5 h-3.5 text-[#111827]" />
+                    <span className="font-semibold text-gray-500">Yaksha AI</span>
+                    {msg.confidence !== undefined && (
+                      <span className="bg-gray-100 text-[10px] text-gray-500 px-1 rounded">
+                        conf: {Math.round(msg.confidence * 100)}%
+                      </span>
+                    )}
+                  </>
+                ) : (
+                  <span className="font-semibold">You</span>
+                )}
+              </div>
+              
+              <div className={`p-4 rounded-lg text-sm max-w-[85%] leading-relaxed ${
+                msg.role === 'user'
+                  ? 'bg-[#111827] text-white'
+                  : 'bg-white border border-gray-200 text-[#111827] shadow-sm'
+              }`}>
+                {msg.role === 'assistant' ? (
+                  <ReactMarkdown 
+                    rehypePlugins={[rehypeSanitize]}
+                    components={{
+                      code({ node, inline, className, children, ...props }) {
+                        const match = /language-(\w+)/.exec(className || '');
+                        const isInline = !match && !String(children).includes('\n');
+                        const codeText = String(children).replace(/\n$/, '');
+
+                        return !isInline ? (
+                          <div className="relative group my-3">
+                            <CopyButton text={codeText} />
+                            <pre className="bg-gray-50 border border-gray-150 rounded-md p-3 text-xs overflow-x-auto text-[#111827] font-mono">
+                              <code className={className} {...props}>
+                                {children}
+                              </code>
+                            </pre>
+                          </div>
+                        ) : (
+                          <code className="bg-gray-100 text-red-600 px-1.5 py-0.5 rounded font-mono text-xs" {...props}>
+                            {children}
+                          </code>
+                        );
+                      }
+                    }}
+                  >
+                    {msg.content}
+                  </ReactMarkdown>
+                ) : (
+                  <p className="whitespace-pre-line">{msg.content}</p>
+                )}
+              </div>
+            </div>
+          ))}
+
+          {/* Skeleton loading preview */}
+          {isLoading && (
+            <div className="flex flex-col items-start space-y-2">
+              <div className="flex items-center space-x-1.5 text-xs text-gray-400">
+                <Bot className="w-3.5 h-3.5 text-[#111827]" />
+                <span>Yaksha is searching...</span>
+              </div>
+              <div className="bg-white border border-gray-100 rounded-lg p-4 w-[60%] shadow-sm space-y-3">
+                <div className="h-4 bg-gray-200 rounded animate-pulse blur-[1px] w-[100%]" />
+                <div className="h-4 bg-gray-200 rounded animate-pulse blur-[1px] w-[80%]" />
+                <div className="h-4 bg-gray-200 rounded animate-pulse blur-[1px] w-[60%]" />
+              </div>
+            </div>
+          )}
+
+          <div ref={chatEndRef} />
+        </div>
+
+        {/* Input box */}
+        <form onSubmit={handleSubmit} className="flex items-center space-x-2">
+          <textarea
+            value={inputVal}
+            onChange={(e) => setInputVal(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                handleSubmit(e);
+              }
+            }}
+            placeholder="Ask Yaksha anything (e.g., How do I reset database connection pool?)"
+            className="flex-1 bg-white border border-gray-200 rounded-lg py-3 px-4 text-sm text-[#111827] placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-[#111827] focus:border-[#111827] resize-none h-12 min-h-[48px] max-h-[120px]"
+            disabled={isLoading}
+          />
+          <button
+            type="submit"
+            disabled={isLoading || !inputVal.trim()}
+            className="p-3 bg-[#111827] hover:bg-black text-white rounded-lg disabled:opacity-40 transition shrink-0"
+          >
+            <Send className="w-5 h-5" />
+          </button>
+        </form>
+      </div>
+
+      {/* RIGHT COLUMN: CONFIDENCE SPARKLINE */}
+      <div className="lg:col-span-1 space-y-6">
+        <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm space-y-4">
+          <div className="flex items-center space-x-2 border-b border-gray-100 pb-3">
+            <TrendingUp className="w-4 h-4 text-[#111827]" />
+            <h3 className="text-xs font-bold uppercase tracking-wider text-gray-500">Confidence Analysis</h3>
+          </div>
+
+          <div className="space-y-4">
+            <p className="text-[11px] text-gray-400 leading-relaxed">
+              Real-time vector search accuracy matching your user query sessions.
+            </p>
+
+            <div className="flex justify-center py-4 bg-gray-50 border border-gray-100 rounded">
+              <svg width="120" height="32" viewBox="0 0 120 32" className="overflow-visible">
+                {renderSparkline()}
+              </svg>
+            </div>
+
+            <div className="flex justify-between items-center text-xs">
+              <span className="text-gray-400 font-medium">Latest Score:</span>
+              <span className="font-bold text-[#111827] bg-gray-100 px-2 py-0.5 rounded">
+                {getLatestConfidencePct()}
+              </span>
+            </div>
+            
+            <div className="border-t border-gray-100 pt-3 text-[10px] text-gray-400 flex items-start space-x-1.5 leading-relaxed">
+              <Info className="w-3.5 h-3.5 text-gray-400 shrink-0 mt-0.5" />
+              <span>
+                Scores above 96% use direct db answers. Scores between 70-95% trigger LLM refinement. Scores under 70% escalate to ticket review.
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default YakshaAI;
