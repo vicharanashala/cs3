@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 import rehypeSanitize from 'rehype-sanitize';
 import { 
-  Send, Bot, TrendingUp, AlertTriangle, Clipboard, Check, Info 
+  Send, Bot, TrendingUp, AlertTriangle, Clipboard, Check, Info, X
 } from 'lucide-react';
 import { useApp } from '../store/AppContext';
 import { askAI } from '../services/api';
