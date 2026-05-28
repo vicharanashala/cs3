@@ -79,7 +79,7 @@ router.post('/ask', async (req, res, next) => {
       [userQuery, matchedFaqId, score, source]
     );
 
-    res.status(200).json({ success: true, answer, source, confidence: score, matchedFaqId });
+    res.status(200).json({ success: true, answer, source, confidence: score, matched_faq_id: matchedFaqId });
   } catch (error) {
     next(error);
   }

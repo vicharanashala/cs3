@@ -106,7 +106,7 @@ export function FAQPortal() {
       }
       try {
         const res = await askAI(queryText);
-        if (res.success && res.confidence > 0.4) {
+        if (res.success && res.confidence > 0.1) {
           // If we got a direct hit or semantic match
           setSuggestions([
             {
