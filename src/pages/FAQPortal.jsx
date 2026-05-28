@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   BookOpen, X, Search, Clock, ThumbsUp, ThumbsDown, 
@@ -12,6 +13,7 @@ import {
 
 export function FAQPortal() {
   const { isLoading, setIsLoading } = useApp();
+  const navigate = useNavigate();
   
   // Onboarding Checklist
   const [showOnboarding, setShowOnboarding] = useState(false);
@@ -38,6 +40,9 @@ export function FAQPortal() {
 
   // Popular / Frequently Asked FAQs
   const [popularFaqs, setPopularFaqs] = useState([]);
+
+  // Ask Yaksha prompt (shown when search yields no results)
+  const [showYakshaPrompt, setShowYakshaPrompt] = useState(false);
 
   // 1. Fetch Onboarding and FAQs
   useEffect(() => {
@@ -96,6 +101,7 @@ export function FAQPortal() {
     debounce(async (queryText) => {
       if (!queryText.trim()) {
         setSuggestions([]);
+        setShowYakshaPrompt(false);
         return;
       }
       try {
@@ -119,6 +125,11 @@ export function FAQPortal() {
           ).slice(0, 5).map(faq => ({ ...faq, confidence_score: 0.95 }));
           
           setSuggestions(localFiltered);
+          if (localFiltered.length === 0) {
+            setShowYakshaPrompt(true);
+          } else {
+            setShowYakshaPrompt(false);
+          }
         }
       } catch (err) {
         // Fallback to local filtering on error
@@ -126,6 +137,11 @@ export function FAQPortal() {
           faq.question.toLowerCase().includes(queryText.toLowerCase())
         ).slice(0, 5).map(faq => ({ ...faq, confidence_score: 0.9 }));
         setSuggestions(localFiltered);
+        if (localFiltered.length === 0) {
+          setShowYakshaPrompt(true);
+        } else {
+          setShowYakshaPrompt(false);
+        }
       }
     }, 300),
     [faqs]
@@ -306,6 +322,28 @@ export function FAQPortal() {
                     )}
                   </div>
                 ))}
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* No results — prompt to ask Yaksha */}
+          <AnimatePresence>
+            {showYakshaPrompt && searchQuery.trim() && suggestions.length === 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: 4 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 4 }}
+                className="mt-3 flex items-center justify-between bg-gray-50 border border-gray-200 rounded-lg px-4 py-3"
+              >
+                <p className="text-xs text-gray-500">
+                  No results for <span className="font-medium text-[#111827]">"{searchQuery}"</span> — try asking Yaksha AI instead.
+                </p>
+                <button
+                  onClick={() => navigate('/yaksha', { state: { query: searchQuery } })}
+                  className="ml-4 text-xs font-semibold text-[#111827] hover:text-black border border-[#111827] hover:bg-[#111827] hover:text-white px-3 py-1.5 rounded transition shrink-0"
+                >
+                  Ask Yaksha →
+                </button>
               </motion.div>
             )}
           </AnimatePresence>

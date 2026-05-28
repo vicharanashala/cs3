@@ -1,29 +1,34 @@
-import OpenAI from 'openai';
+import { query } from '../db/neon.js';
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY || 'placeholder-key-for-now',
-});
+// Primary search: PostgreSQL full-text search (no external API needed)
+// Works 100% offline — no API keys required for matching
+export async function searchWithFullText(userQuery) {
+  const normalizedQuery = userQuery.trim().toLowerCase();
 
-export async function generateEmbedding(text) {
-  if (!text || typeof text !== 'string') {
-    throw new Error('Invalid input text: must be a non-empty string.');
-  }
+  const sql = `
+    SELECT 
+      id, question, answer, short_answer, category, updated_at,
+      ts_rank(to_tsvector('english', question || ' ' || COALESCE(short_answer, '')), plainto_tsquery('english', $1)) +
+      ts_rank(to_tsvector('english', COALESCE(answer, '')), plainto_tsquery('english', $1)) * 0.5
+      AS rank_score
+    FROM faqs
+    WHERE status = 'published'
+      AND (
+        to_tsvector('english', question || ' ' || COALESCE(short_answer, '')) @@ plainto_tsquery('english', $1)
+        OR LOWER(question) LIKE '%' || $2 || '%'
+        OR LOWER(COALESCE(short_answer, '')) LIKE '%' || $2 || '%'
+      )
+    ORDER BY rank_score DESC
+    LIMIT 1
+  `;
 
-  try {
-    const response = await openai.embeddings.create({
-      model: 'text-embedding-3-small',
-      input: text.trim(),
-    });
-
-    if (response && response.data && response.data[0] && response.data[0].embedding) {
-      return response.data[0].embedding;
-    } else {
-      throw new Error('Unexpected response format from OpenAI Embeddings API.');
-    }
-  } catch (error) {
-    console.error('OpenAI Embedding Error:', error);
-    throw new Error(`Embedding Generation Failed: ${error.message}`);
-  }
+  const result = await query(sql, [normalizedQuery, normalizedQuery]);
+  return result.rows[0] || null;
 }
 
-export default { generateEmbedding };
+// Keep generateEmbedding for backward compatibility (now a no-op)
+export async function generateEmbedding(text) {
+  throw new Error('Embedding generation is no longer used — switched to PostgreSQL full-text search');
+}
+
+export default { searchWithFullText, generateEmbedding };

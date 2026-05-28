@@ -1,97 +1,85 @@
 import express from 'express';
-import OpenAI from 'openai';
 import { query as dbQuery } from '../db/neon.js';
-import { generateEmbedding } from '../services/embedding.service.js';
+import { searchWithFullText } from '../services/embedding.service.js';
 import { ValidationError } from '../middleware/errorHandler.js';
 
 const router = express.Router();
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY || 'placeholder-key-for-now',
-});
 
-// POST /api/ai/ask - Ask Yaksha AI (handles semantic vector search & OpenAI answering)
+// Lazy Groq client — created only when first LLM call is needed
+let _groq = null;
+async function getGroq() {
+  if (!_groq) {
+    // Set OPENAI_API_KEY so the openai SDK's import-time check passes
+    process.env.OPENAI_API_KEY = process.env.GROQ_API_KEY;
+    const OpenAI = (await import('openai')).default;
+    _groq = new OpenAI({
+      apiKey: process.env.GROQ_API_KEY,
+      baseURL: 'https://api.groq.com/openai/v1',
+    });
+  }
+  return _groq;
+}
+
+// POST /api/ai/ask - Ask Yaksha AI (PG full-text search + Groq LLM)
 router.post('/ask', async (req, res, next) => {
   try {
-    const { query } = req.body;
-    if (!query || typeof query !== 'string') {
+    const { query: userQuery } = req.body;
+    if (!userQuery || typeof userQuery !== 'string') {
       throw new ValidationError('Query is required');
     }
 
-    // Step 1: Generate query embedding
-    const embedding = await generateEmbedding(query);
-    const embeddingStr = `[${embedding.join(',')}]`;
+    // Step 1: Full-text search in PostgreSQL
+    const matchedFaq = await searchWithFullText(userQuery);
 
-    // Step 2: Execute exact SQL with temporal decay applied
-    const sql = `
-      SELECT 
-        id, question, answer, short_answer, category, updated_at,
-        (1 - (embedding <=> $1::vector)) * 
-        (1 - (0.01 * GREATEST(0, DATE_PART('day', NOW() - updated_at) - 60))) 
-        AS confidence_score
-      FROM faqs
-      WHERE status = 'published'
-      ORDER BY confidence_score DESC
-      LIMIT 1
-    `;
-    
-    const result = await dbQuery(sql, [embeddingStr]);
-    const matchedFaq = result.rows.length > 0 ? result.rows[0] : null;
-    let score = matchedFaq ? parseFloat(matchedFaq.confidence_score) : 0.0;
-
-    if (isNaN(score)) {
-      score = 0.0;
-    }
+    let score = matchedFaq ? parseFloat(matchedFaq.rank_score) : 0.0;
+    if (isNaN(score)) score = 0.0;
 
     let answer = null;
     let source = 'escalation';
     let matchedFaqId = null;
 
-    // Step 3: Apply score thresholds
-    if (matchedFaq && score >= 0.96) {
-      answer = matchedFaq.answer;
-      source = 'db';
-      matchedFaqId = matchedFaq.id;
-    } else if (matchedFaq && score >= 0.70 && score < 0.96) {
+    if (matchedFaq && score >= 0.7) {
+      // Strong match — refine with Groq LLM
       matchedFaqId = matchedFaq.id;
       source = 'llm';
 
       try {
-        const chatCompletion = await openai.chat.completions.create({
-          model: 'gpt-3.5-turbo',
-          max_tokens: 30,
+        const groq = await getGroq();
+        const chatCompletion = await groq.chat.completions.create({
+          model: 'llama-3.3-70b-versatile',
+          max_tokens: 200,
           messages: [
-            { role: 'system', content: 'You are a concise FAQ assistant. Answer in one sentence.' },
-            { 
-              role: 'user', 
-              content: `User query: "${query}"\nMatched FAQ context:\nQuestion: "${matchedFaq.question}"\nAnswer: "${matchedFaq.answer}"` 
+            { role: 'system', content: 'You are a concise FAQ assistant. Answer in one sentence. Be friendly and helpful.' },
+            {
+              role: 'user',
+              content: `User query: "${userQuery}"\nMatched FAQ context:\nQuestion: "${matchedFaq.question}"\nAnswer: "${matchedFaq.answer}"`
             }
           ]
         });
         answer = chatCompletion.choices[0].message.content.trim();
       } catch (err) {
-        console.error('OpenAI Chat Completion failed, falling back to database short_answer:', err);
+        console.error('Groq Chat Completion failed, falling back to short_answer:', err);
         answer = matchedFaq.short_answer || matchedFaq.answer;
       }
+    } else if (matchedFaq && score >= 0.1) {
+      // Weak match — return short_answer directly
+      matchedFaqId = matchedFaq.id;
+      source = 'db';
+      answer = matchedFaq.short_answer || matchedFaq.answer;
     } else {
-      // score < 0.70
+      // No useful match — escalate to Yaksha chat
       source = 'escalation';
       matchedFaqId = null;
       answer = null;
     }
 
-    // Always insert search log
-    const logSql = `
-      INSERT INTO search_logs (query_text, matched_faq_id, confidence_score, source)
-      VALUES ($1, $2, $3, $4)
-    `;
-    await dbQuery(logSql, [query, matchedFaqId, score, source]);
+    // Log search
+    await dbQuery(
+      `INSERT INTO search_logs (query_text, matched_faq_id, confidence_score, source) VALUES ($1, $2, $3, $4)`,
+      [userQuery, matchedFaqId, score, source]
+    );
 
-    res.status(200).json({
-      success: true,
-      answer,
-      source,
-      confidence: score
-    });
+    res.status(200).json({ success: true, answer, source, confidence: score, matchedFaqId });
   } catch (error) {
     next(error);
   }
