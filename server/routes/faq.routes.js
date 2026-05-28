@@ -125,7 +125,7 @@ router.post('/', async (req, res, next) => {
 
 // PUT /api/faq/:id - Update FAQ (records history, regenerates embedding, invalidates cache)
 router.put('/:id', async (req, res, next) => {
-  const client = await pool.connect();
+  const client = await pool().connect();
   try {
     const { id } = req.params;
     const { question, answer, short_answer, category, risk_level, is_onboarding_faq } = req.body;

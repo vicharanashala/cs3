@@ -6,7 +6,8 @@ import {
 } from 'lucide-react';
 import { useApp } from '../store/AppContext';
 import { 
-  getFAQs, getOnboardingFAQs, getFAQHistory, askAI, voteFAQ 
+  getFAQs, getOnboardingFAQs, getFAQHistory, askAI, voteFAQ,
+  getAdminPopular
 } from '../services/api';
 
 export function FAQPortal() {
@@ -35,6 +36,9 @@ export function FAQPortal() {
   // Voting Status Tracker ({ [faqId]: 'upvoted' | 'downvoted_pending' | 'voted_done' })
   const [votesState, setVotesState] = useState({});
 
+  // Popular / Frequently Asked FAQs
+  const [popularFaqs, setPopularFaqs] = useState([]);
+
   // 1. Fetch Onboarding and FAQs
   useEffect(() => {
     const isDismissed = localStorage.getItem('onboarding_dismissed');
@@ -43,6 +47,7 @@ export function FAQPortal() {
       fetchOnboarding();
     }
     fetchFAQs();
+    fetchPopular();
   }, []);
 
   const fetchOnboarding = async () => {
@@ -67,6 +72,17 @@ export function FAQPortal() {
       console.error(err);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const fetchPopular = async () => {
+    try {
+      const res = await getAdminPopular();
+      if (res.success && res.data.length > 0) {
+        setPopularFaqs(res.data);
+      }
+    } catch (err) {
+      console.error(err);
     }
   };
 
@@ -235,10 +251,10 @@ export function FAQPortal() {
       {/* SECTION B: HERO SEARCH BAR */}
       <div className="space-y-4 max-w-2xl mx-auto text-center relative z-40">
         <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight text-[#111827]">
-          How can we help you today?
+          VINS Knowledge Vault
         </h1>
         <p className="text-gray-500 text-sm md:text-base">
-          Search the Samagama Knowledge Vault or talk to Yaksha AI instantly.
+          By the community, for the community — search VINS internships, NOC, Zoom, ViBe, Rosetta...
         </p>
         
         <div className="relative mt-6">
@@ -252,7 +268,7 @@ export function FAQPortal() {
               setSearchQuery(e.target.value);
               setShowSuggestions(true);
             }}
-            placeholder="Search questions, settings, APIs..."
+            placeholder="Search questions about VINS, NOC, Zoom, ViBe..."
             className="w-full pl-12 pr-4 py-3.5 bg-white border border-gray-200 rounded-lg shadow-sm focus:outline-none focus:ring-1 focus:ring-[#111827] focus:border-[#111827] text-sm text-[#111827] transition"
             disabled={isLoading}
           />
@@ -322,19 +338,110 @@ export function FAQPortal() {
         </AnimatePresence>
       </div>
 
-      {/* SECTION C: FAQ BENTO GRID */}
+      {/* SECTION C: FREQUENTLY ASKED — PRIORITY TIERS */}
+      {popularFaqs.length > 0 && (
+        <div className="space-y-8">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-[#111827]">Frequently Asked</h2>
+            <span className="text-xs text-gray-400 border-b border-gray-200 pb-0.5">Ranked by search volume</span>
+          </div>
+
+          {/* TIER 1 — Most searched */}
+          {popularFaqs.slice(0, 1).length > 0 && (
+            <div className="border border-gray-200 rounded-lg overflow-hidden">
+              <div className="bg-gray-50 border-b border-gray-200 px-4 py-2.5 flex items-center justify-between">
+                <span className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Most Searched</span>
+                <span className="text-[10px] text-gray-400">{popularFaqs.slice(0, 1).length} question</span>
+              </div>
+              {popularFaqs.slice(0, 1).map((faq, i) => (
+                <div
+                  key={faq.id}
+                  onClick={() => {
+                    setSelectedSuggestion(faq);
+                    setShowSuggestions(false);
+                    setSearchQuery('');
+                  }}
+                  className="px-4 py-3.5 hover:bg-gray-50 cursor-pointer transition border-b border-gray-100 last:border-0 flex items-start gap-3"
+                >
+                  <span className="text-gray-300 text-xs font-mono mt-0.5 w-4 shrink-0">{String(i + 1).padStart(2, '0')}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-[#111827] font-medium leading-snug">{faq.question}</p>
+                    <p className="text-[11px] text-gray-400 mt-1">{faq.category} &middot; {Number(faq.search_count)} searches</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* TIER 2 — Frequently asked */}
+          {popularFaqs.slice(1, 4).length > 0 && (
+            <div className="border border-gray-200 rounded-lg overflow-hidden">
+              <div className="bg-gray-50 border-b border-gray-200 px-4 py-2.5 flex items-center justify-between">
+                <span className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Frequently Asked</span>
+                <span className="text-[10px] text-gray-400">{popularFaqs.slice(1, 4).length} questions</span>
+              </div>
+              {popularFaqs.slice(1, 4).map((faq, i) => (
+                <div
+                  key={faq.id}
+                  onClick={() => {
+                    setSelectedSuggestion(faq);
+                    setShowSuggestions(false);
+                    setSearchQuery('');
+                  }}
+                  className="px-4 py-3 hover:bg-gray-50 cursor-pointer transition border-b border-gray-100 last:border-0 flex items-start gap-3"
+                >
+                  <span className="text-gray-300 text-xs font-mono mt-0.5 w-4 shrink-0">{String(i + 2).padStart(2, '0')}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-[#111827] leading-snug">{faq.question}</p>
+                    <p className="text-[11px] text-gray-400 mt-1">{faq.category} &middot; {Number(faq.search_count)} searches</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* TIER 3 — Others */}
+          {popularFaqs.slice(4).length > 0 && (
+            <div className="border border-gray-100 rounded-lg overflow-hidden">
+              <div className="bg-gray-50 border-b border-gray-100 px-4 py-2.5 flex items-center justify-between">
+                <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Other Popular</span>
+                <span className="text-[10px] text-gray-300">{popularFaqs.slice(4).length} questions</span>
+              </div>
+              {popularFaqs.slice(4).map((faq, i) => (
+                <div
+                  key={faq.id}
+                  onClick={() => {
+                    setSelectedSuggestion(faq);
+                    setShowSuggestions(false);
+                    setSearchQuery('');
+                  }}
+                  className="px-4 py-2.5 hover:bg-gray-50 cursor-pointer transition border-b border-gray-100 last:border-0 flex items-start gap-3"
+                >
+                  <span className="text-gray-200 text-xs font-mono mt-0.5 w-4 shrink-0">{String(i + 5).padStart(2, '0')}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-gray-600 leading-snug">{faq.question}</p>
+                    <p className="text-[11px] text-gray-300 mt-0.5">{faq.category}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* SECTION D: FAQ BENTO GRID */}
       <div className="space-y-6">
         <div className="flex justify-between items-center border-b border-gray-200 pb-4">
-          <h2 className="text-xl font-bold tracking-tight text-[#111827]">Knowledge Categories</h2>
+          <h2 className="text-xl font-bold tracking-tight text-[#111827]">Browse by Category</h2>
           <span className="text-xs text-gray-500 font-medium bg-gray-100 px-2 py-1 rounded">
-            Total FAQs: {faqs.length}
+            {faqs.length} answers and growing
           </span>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-          {/* Right Column (Category filters, displays first/prominent on mobile or sidebar on desktop) */}
-          <div className="lg:col-span-1 lg:order-last space-y-4">
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400">Filters</h3>
+          {/* LEFT SIDEBAR: Category filters */}
+          <div className="lg:col-span-1 space-y-4">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400">Browse by Category</h3>
             <div className="flex flex-wrap lg:flex-col gap-2">
               {categories.map((cat) => (
                 <button
@@ -352,7 +459,7 @@ export function FAQPortal() {
             </div>
           </div>
 
-          {/* Left Column (FAQ Cards Grid) */}
+          {/* RIGHT: FAQ Cards Grid */}
           <div className="lg:col-span-3 grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
             <AnimatePresence>
               {filteredFaqs.map((faq) => {

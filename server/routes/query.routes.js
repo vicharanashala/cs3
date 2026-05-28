@@ -54,7 +54,7 @@ router.get('/:id', async (req, res, next) => {
 
 // PATCH /api/query/:id - Update status (triggers auto-FAQ creation upon 'closed')
 router.patch('/:id', async (req, res, next) => {
-  const client = await pool.connect();
+  const client = await pool().connect();
   try {
     const { id } = req.params;
     const { status } = req.body;

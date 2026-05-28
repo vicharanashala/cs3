@@ -4,11 +4,8 @@ import adminAuth from '../middleware/adminAuth.js';
 
 const router = express.Router();
 
-// Apply adminAuth middleware to ALL routes in this file
-router.use(adminAuth);
-
-// GET /api/admin/gaps - Identify queries without matching FAQs
-router.get('/gaps', async (req, res, next) => {
+// GET /api/admin/gaps - Identify queries without matching FAQs (admin-only)
+router.get('/gaps', adminAuth, async (req, res, next) => {
   try {
     const sql = `
       SELECT query_text, COUNT(*) as frequency
@@ -25,8 +22,8 @@ router.get('/gaps', async (req, res, next) => {
   }
 });
 
-// GET /api/admin/heatmap - Heatmap analysis of categories, confidence, and volume
-router.get('/heatmap', async (req, res, next) => {
+// GET /api/admin/heatmap - Heatmap analysis of categories, confidence, and volume (admin-only)
+router.get('/heatmap', adminAuth, async (req, res, next) => {
   try {
     const sql = `
       SELECT 
@@ -45,8 +42,29 @@ router.get('/heatmap', async (req, res, next) => {
   }
 });
 
-// GET /api/admin/rage-sessions - Detect users attempting the same query repeatedly
-router.get('/rage-sessions', async (req, res, next) => {
+// GET /api/admin/popular - Top FAQs by search+vote frequency (public)
+router.get('/popular', async (req, res, next) => {
+  try {
+    const sql = `
+      SELECT f.id, f.question, f.short_answer, f.category,
+             COUNT(s.id) AS search_count,
+             SUM(CASE WHEN s.confidence_score = 1.0 THEN 1 ELSE 0 END) AS upvotes
+      FROM faqs f
+      LEFT JOIN search_logs s ON s.matched_faq_id = f.id
+      WHERE f.status = 'published'
+      GROUP BY f.id
+      ORDER BY search_count DESC, upvotes DESC
+      LIMIT 8
+    `;
+    const result = await query(sql);
+    res.status(200).json({ success: true, data: result.rows });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// GET /api/admin/rage-sessions - Detect users attempting the same query repeatedly (admin-only)
+router.get('/rage-sessions', adminAuth, async (req, res, next) => {
   try {
     const sql = `
       SELECT 

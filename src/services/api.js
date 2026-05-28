@@ -176,6 +176,16 @@ export async function getAdminRageSessions() {
   }
 }
 
+export async function getAdminPopular() {
+  try {
+    const response = await api.get('/admin/popular');
+    return response.data;
+  } catch (error) {
+    console.error('API Error [getAdminPopular]:', error);
+    throw error;
+  }
+}
+
 export default {
   getFAQs,
   getOnboardingFAQs,
