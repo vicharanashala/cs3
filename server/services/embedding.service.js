@@ -2,7 +2,7 @@ import { query } from '../db/neon.js';
 
 // Primary search: PostgreSQL full-text search (no external API needed)
 // Works 100% offline — no API keys required for matching
-export async function searchWithFullText(userQuery) {
+export async function searchWithFullText(userQuery, limit = 1) {
   const normalizedQuery = userQuery.trim().toLowerCase();
 
   const sql = `
@@ -19,11 +19,11 @@ export async function searchWithFullText(userQuery) {
         OR LOWER(COALESCE(short_answer, '')) LIKE '%' || $2 || '%'
       )
     ORDER BY rank_score DESC
-    LIMIT 1
+    LIMIT $3
   `;
 
-  const result = await query(sql, [normalizedQuery, normalizedQuery]);
-  return result.rows[0] || null;
+  const result = await query(sql, [normalizedQuery, normalizedQuery, limit]);
+  return limit === 1 ? (result.rows[0] || null) : result.rows;
 }
 
 // Keep generateEmbedding for backward compatibility (now a no-op)

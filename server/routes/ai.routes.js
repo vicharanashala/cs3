@@ -28,31 +28,32 @@ router.post('/ask', async (req, res, next) => {
       throw new ValidationError('Query is required');
     }
 
-    // Step 1: Full-text search in PostgreSQL
-    const matchedFaq = await searchWithFullText(userQuery);
+    // Step 1: Full-text search in PostgreSQL — get top 3 matches
+    const topFaqs = await searchWithFullText(userQuery, 3);
+    const matchedFaq = topFaqs[0] || null;
 
     let score = matchedFaq ? parseFloat(matchedFaq.rank_score) : 0.0;
     if (isNaN(score)) score = 0.0;
 
     let answer = null;
     let source = 'escalation';
-    let matchedFaqId = null;
 
     if (matchedFaq && score >= 0.7) {
-      // Strong match — refine with Groq LLM
-      matchedFaqId = matchedFaq.id;
+      // Strong match — refine with Groq LLM using all top 3 as context
       source = 'llm';
-
       try {
         const groq = await getGroq();
+        const context = topFaqs
+          .map((f, i) => `FAQ #${i + 1}: "${f.question}" → "${f.short_answer || f.answer}"`)
+          .join('\n');
         const chatCompletion = await groq.chat.completions.create({
           model: 'llama-3.3-70b-versatile',
-          max_tokens: 200,
+          max_tokens: 250,
           messages: [
-            { role: 'system', content: 'You are a concise FAQ assistant. Answer in one sentence. Be friendly and helpful.' },
+            { role: 'system', content: 'You are a concise FAQ assistant. Answer based on the provided FAQs. If the answer is spread across multiple FAQs, combine them. Keep it friendly and helpful. If the FAQs don\'t fully answer the query, say so honestly.' },
             {
               role: 'user',
-              content: `User query: "${userQuery}"\nMatched FAQ context:\nQuestion: "${matchedFaq.question}"\nAnswer: "${matchedFaq.answer}"`
+              content: `User query: "${userQuery}"\n\nRelevant FAQs:\n${context}`
             }
           ]
         });
@@ -63,23 +64,35 @@ router.post('/ask', async (req, res, next) => {
       }
     } else if (matchedFaq && score >= 0.1) {
       // Weak match — return short_answer directly
-      matchedFaqId = matchedFaq.id;
       source = 'db';
       answer = matchedFaq.short_answer || matchedFaq.answer;
     } else {
-      // No useful match — escalate to Yaksha chat
+      // No useful match — escalate
       source = 'escalation';
-      matchedFaqId = null;
       answer = null;
     }
 
-    // Log search
+    // Log search with best match
     await dbQuery(
       `INSERT INTO search_logs (query_text, matched_faq_id, confidence_score, source) VALUES ($1, $2, $3, $4)`,
-      [userQuery, matchedFaqId, score, source]
+      [userQuery, matchedFaq?.id || null, score, source]
     );
 
-    res.status(200).json({ success: true, answer, source, confidence: score, matched_faq_id: matchedFaqId });
+    res.status(200).json({
+      success: true,
+      answer,
+      source,
+      confidence: score,
+      matched_faq_id: matchedFaq?.id || null,
+      // Always return top 3 FAQs for display in chat
+      related_faqs: topFaqs.map(f => ({
+        id: f.id,
+        question: f.question,
+        short_answer: f.short_answer || f.answer,
+        category: f.category,
+        confidence: parseFloat(f.rank_score) || 0
+      }))
+    });
   } catch (error) {
     next(error);
   }
