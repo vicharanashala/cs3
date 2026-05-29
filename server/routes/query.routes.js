@@ -1,7 +1,7 @@
 import express from 'express';
 import OpenAI from 'openai';
 import { query as dbQuery, pool } from '../db/neon.js';
-import { generateEmbedding } from '../services/embedding.service.js';
+
 import { del } from '../services/cache.service.js';
 import { ValidationError, NotFoundError } from '../middleware/errorHandler.js';
 
@@ -102,9 +102,7 @@ router.patch('/:id', async (req, res, next) => {
 
         const faqData = JSON.parse(response.choices[0].message.content.trim());
         if (faqData && faqData.question && faqData.answer) {
-          // Generate embedding for draft FAQ
-          const embedding = await generateEmbedding(`${faqData.question} ${faqData.answer}`);
-          const embeddingStr = `[${embedding.join(',')}]`;
+          const embeddingStr = null; // full-text search only
 
           const insertFaqSql = `
             INSERT INTO faqs (question, answer, embedding, status, is_onboarding_faq)

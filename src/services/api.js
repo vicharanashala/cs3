@@ -186,6 +186,94 @@ export async function getAdminPopular() {
   }
 }
 
+// ─────────────────────────────────────────────
+// COMMUNITY API
+// ─────────────────────────────────────────────
+
+export async function submitCommunityAnswer({ faq_id, answer_text, visitor_id, display_name, comment }) {
+  try {
+    const response = await api.post('/community/answers', { faq_id, answer_text, visitor_id, display_name, comment });
+    return response.data;
+  } catch (error) {
+    console.error('API Error [submitCommunityAnswer]:', error);
+    throw error;
+  }
+}
+
+export async function getCommunityAnswers(faqId) {
+  try {
+    const response = await api.get(`/community/faq/${faqId}/answers`);
+    return response.data;
+  } catch (error) {
+    console.error(`API Error [getCommunityAnswers ${faqId}]:`, error);
+    throw error;
+  }
+}
+
+export async function disagreeCommunityAnswer(answerId, { reason, visitor_id }) {
+  try {
+    const response = await api.post(`/community/answers/${answerId}/disagree`, { reason, visitor_id });
+    return response.data;
+  } catch (error) {
+    console.error(`API Error [disagreeCommunityAnswer ${answerId}]:`, error);
+    throw error;
+  }
+}
+
+export async function createIssue({ faq_id, reason, visitor_id, suggested_question }) {
+  try {
+    const response = await api.post('/community/issues', { faq_id, reason, visitor_id, suggested_question });
+    return response.data;
+  } catch (error) {
+    console.error('API Error [createIssue]:', error);
+    throw error;
+  }
+}
+
+// ─────────────────────────────────────────────
+// ADMIN QUEUE API
+// ─────────────────────────────────────────────
+
+export async function getAdminQueue(tab) {
+  try {
+    const response = await api.get('/admin/queue', { params: { tab } });
+    return response.data;
+  } catch (error) {
+    console.error('API Error [getAdminQueue]:', error);
+    throw error;
+  }
+}
+
+export async function adminReviewAnswer(answerId, action) {
+  try {
+    const response = await api.put(`/admin/answers/${answerId}`, { action });
+    return response.data;
+  } catch (error) {
+    console.error(`API Error [adminReviewAnswer ${answerId}]:`, error);
+    throw error;
+  }
+}
+
+export async function getAdminIssues() {
+  try {
+    const response = await api.get('/admin/issues');
+    return response.data;
+  } catch (error) {
+    console.error('API Error [getAdminIssues]:', error);
+    throw error;
+  }
+}
+
+export async function adminResolveIssue(issueId, status) {
+  try {
+    const response = await api.put(`/admin/issues/${issueId}`, { status });
+    return response.data;
+  } catch (error) {
+    console.error(`API Error [adminResolveIssue ${issueId}]:`, error);
+    throw error;
+  }
+}
+
 export default {
   getFAQs,
   getOnboardingFAQs,
@@ -201,4 +289,13 @@ export default {
   getAdminGaps,
   getAdminHeatmap,
   getAdminRageSessions,
+  getAdminPopular,
+  submitCommunityAnswer,
+  getCommunityAnswers,
+  disagreeCommunityAnswer,
+  createIssue,
+  getAdminQueue,
+  adminReviewAnswer,
+  getAdminIssues,
+  adminResolveIssue,
 };

@@ -3,12 +3,13 @@ import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   BookOpen, X, Search, Clock, ThumbsUp, ThumbsDown, 
-  AlertTriangle, Check, ChevronDown, ChevronUp, AlertCircle 
+  AlertTriangle, Check, ChevronDown, ChevronUp, AlertCircle,
+  Lightbulb, Send
 } from 'lucide-react';
 import { useApp } from '../store/AppContext';
 import { 
   getFAQs, getOnboardingFAQs, getFAQHistory, askAI, voteFAQ,
-  getAdminPopular
+  getAdminPopular, createIssue
 } from '../services/api';
 
 export function FAQPortal() {
@@ -43,6 +44,22 @@ export function FAQPortal() {
 
   // Ask Yaksha prompt (shown when search yields no results)
   const [showYakshaPrompt, setShowYakshaPrompt] = useState(false);
+
+  // Suggest New FAQ modal
+  const [showSuggestModal, setShowSuggestModal] = useState(false);
+  const [suggestForm, setSuggestForm] = useState({ question: '', answer: '', reason: '' });
+  const [suggestSubmitting, setSuggestSubmitting] = useState(false);
+  const [suggestDone, setSuggestDone] = useState(false);
+
+  // Stable visitor ID (matches YakshaAI.jsx)
+  const visitorId = (() => {
+    let vid = localStorage.getItem('samagama_visitor_id');
+    if (!vid) {
+      vid = `v_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+      localStorage.setItem('samagama_visitor_id', vid);
+    }
+    return vid;
+  })();
 
   // 1. Fetch Onboarding and FAQs
   useEffect(() => {
@@ -209,6 +226,30 @@ export function FAQPortal() {
     }
   };
 
+  // ── Suggest new FAQ handler ──────────────────────────────────────────────
+  const handleSuggestSubmit = async () => {
+    const q = suggestForm.question.trim();
+    const a = suggestForm.answer.trim();
+    const r = suggestForm.reason.trim();
+    if (q.length < 10 || r.length < 5) return;
+
+    setSuggestSubmitting(true);
+    try {
+      await createIssue({
+        visitor_id: visitorId,
+        reason: r,
+        suggested_question: q,
+        faq_id: null,
+      });
+      setSuggestDone(true);
+      setSuggestForm({ question: '', answer: '', reason: '' });
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setSuggestSubmitting(false);
+    }
+  };
+
   // Unique categories extraction
   const categories = ['All', ...new Set(faqs.map(faq => faq.category).filter(Boolean))];
 
@@ -272,6 +313,16 @@ export function FAQPortal() {
         <p className="text-gray-500 text-sm md:text-base">
           By the community, for the community — search VINS internships, NOC, Zoom, ViBe, Rosetta...
         </p>
+
+        <div className="flex items-center justify-center gap-3 mt-3">
+          <button
+            onClick={() => setShowSuggestModal(true)}
+            className="flex items-center space-x-1.5 text-xs font-medium text-gray-500 hover:text-[#111827] border border-gray-200 hover:border-[#111827] px-3 py-1.5 rounded-lg transition"
+          >
+            <Lightbulb className="w-3.5 h-3.5" />
+            <span>Suggest a New FAQ</span>
+          </button>
+        </div>
         
         <div className="relative mt-6">
           <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none text-gray-400">
@@ -336,14 +387,22 @@ export function FAQPortal() {
                 className="mt-3 flex items-center justify-between bg-gray-50 border border-gray-200 rounded-lg px-4 py-3"
               >
                 <p className="text-xs text-gray-500">
-                  No results for <span className="font-medium text-[#111827]">"{searchQuery}"</span> — try asking Yaksha AI instead.
+                  No results for <span className="font-medium text-[#111827]">"{searchQuery}"</span> — try asking Yaksha, or suggest a new FAQ.
                 </p>
-                <button
-                  onClick={() => navigate('/yaksha', { state: { query: searchQuery } })}
-                  className="ml-4 text-xs font-semibold text-[#111827] hover:text-black border border-[#111827] hover:bg-[#111827] hover:text-white px-3 py-1.5 rounded transition shrink-0"
-                >
-                  Ask Yaksha →
-                </button>
+                <div className="flex items-center space-x-2 shrink-0">
+                  <button
+                    onClick={() => setShowSuggestModal(true)}
+                    className="text-xs text-gray-500 hover:text-[#111827] border border-gray-200 hover:border-[#111827] px-2.5 py-1.5 rounded transition"
+                  >
+                    Suggest FAQ
+                  </button>
+                  <button
+                    onClick={() => navigate('/yaksha', { state: { query: searchQuery } })}
+                    className="text-xs font-semibold text-[#111827] hover:text-black border border-[#111827] hover:bg-[#111827] hover:text-white px-3 py-1.5 rounded transition"
+                  >
+                    Ask Yaksha →
+                  </button>
+                </div>
               </motion.div>
             )}
           </AnimatePresence>
@@ -639,6 +698,130 @@ export function FAQPortal() {
           </div>
         </div>
       </div>
+
+      {/* SUGGEST NEW FAQ MODAL */}
+      <AnimatePresence>
+        {showSuggestModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-black/30 backdrop-blur-xs flex items-center justify-center p-4"
+            onClick={(e) => { if (e.target === e.currentTarget) setShowSuggestModal(false); }}
+          >
+            <motion.div
+              initial={{ scale: 0.95, y: 15 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.95, y: 15 }}
+              className="bg-white border border-gray-200 rounded-lg shadow-xl w-full max-w-lg relative"
+            >
+              {/* Header */}
+              <div className="p-5 border-b border-gray-100 flex justify-between items-start">
+                <div className="flex items-start space-x-3">
+                  <div className="p-2 bg-[#111827] text-white rounded-lg shrink-0">
+                    <Lightbulb className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-[#111827]">Suggest a New FAQ</h3>
+                    <p className="text-xs text-gray-400 mt-0.5">Help the community — propose a question worth adding</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => { setShowSuggestModal(false); setSuggestDone(false); setSuggestForm({ question: '', answer: '', reason: '' }); }}
+                  className="p-1 text-gray-400 hover:text-[#111827] transition"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Body */}
+              <div className="p-5 space-y-4">
+                {suggestDone ? (
+                  <div className="flex flex-col items-center py-6 space-y-3 text-center">
+                    <div className="p-3 bg-green-50 text-green-600 rounded-full">
+                      <Check className="w-6 h-6" />
+                    </div>
+                    <p className="font-semibold text-[#111827]">Suggestion submitted!</p>
+                    <p className="text-xs text-gray-500">Our team will review your proposed FAQ and add it if it fits the knowledge base.</p>
+                    <button
+                      onClick={() => { setShowSuggestModal(false); setSuggestDone(false); setSuggestForm({ question: '', answer: '', reason: '' }); }}
+                      className="mt-2 text-xs font-semibold text-[#111827] hover:text-black border border-[#111827] hover:bg-[#111827] hover:text-white px-4 py-2 rounded-lg transition"
+                    >
+                      Close
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <div className="space-y-1">
+                      <label className="text-xs font-semibold text-gray-600">Question <span className="text-red-500">*</span></label>
+                      <input
+                        type="text"
+                        value={suggestForm.question}
+                        onChange={(e) => setSuggestForm(prev => ({ ...prev, question: e.target.value }))}
+                        placeholder="e.g. How do I apply for a NOC?"
+                        className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-[#111827] focus:border-[#111827] text-[#111827]"
+                      />
+                      <span className="text-[10px] text-gray-400">{suggestForm.question.trim().length} chars (min 10)</span>
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-xs font-semibold text-gray-600">
+                        Your Answer <span className="text-gray-400 font-normal">(optional, helps admins)</span>
+                      </label>
+                      <textarea
+                        value={suggestForm.answer}
+                        onChange={(e) => setSuggestForm(prev => ({ ...prev, answer: e.target.value }))}
+                        placeholder="If you know the answer, share it here..."
+                        rows={3}
+                        className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2.5 resize-none focus:outline-none focus:ring-1 focus:ring-[#111827] focus:border-[#111827] text-[#111827]"
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-xs font-semibold text-gray-600">Why should this be added? <span className="text-red-500">*</span></label>
+                      <textarea
+                        value={suggestForm.reason}
+                        onChange={(e) => setSuggestForm(prev => ({ ...prev, reason: e.target.value }))}
+                        placeholder="e.g. Many students ask about NOC application deadlines every year..."
+                        rows={2}
+                        className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2.5 resize-none focus:outline-none focus:ring-1 focus:ring-[#111827] focus:border-[#111827] text-[#111827]"
+                      />
+                      <span className="text-[10px] text-gray-400">{suggestForm.reason.trim().length} chars (min 5)</span>
+                    </div>
+
+                    <div className="flex justify-end space-x-2 pt-1">
+                      <button
+                        onClick={() => { setShowSuggestModal(false); setSuggestForm({ question: '', answer: '', reason: '' }); }}
+                        className="text-xs text-gray-500 hover:text-gray-700 px-3 py-2 rounded-lg transition"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={handleSuggestSubmit}
+                        disabled={
+                          suggestForm.question.trim().length < 10 ||
+                          suggestForm.reason.trim().length < 5 ||
+                          suggestSubmitting
+                        }
+                        className="flex items-center space-x-1.5 text-xs font-semibold bg-[#111827] text-white hover:bg-black px-4 py-2 rounded-lg disabled:opacity-40 transition"
+                      >
+                        {suggestSubmitting ? (
+                          <span>Submitting...</span>
+                        ) : (
+                          <>
+                            <Send className="w-3.5 h-3.5" />
+                            <span>Submit Suggestion</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* VERSION HISTORY MODAL */}
       <AnimatePresence>

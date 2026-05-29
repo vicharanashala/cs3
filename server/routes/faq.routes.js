@@ -1,7 +1,7 @@
 import express from 'express';
 import { query, pool } from '../db/neon.js';
 import { get, set, del } from '../services/cache.service.js';
-import { generateEmbedding } from '../services/embedding.service.js';
+
 import { ValidationError, NotFoundError } from '../middleware/errorHandler.js';
 
 const router = express.Router();
@@ -93,13 +93,11 @@ router.post('/', async (req, res, next) => {
       throw new ValidationError('Question and Answer are required');
     }
 
-    // Generate semantic embedding
-    const embedding = await generateEmbedding(`${question} ${answer}`);
-    const embeddingStr = `[${embedding.join(',')}]`;
+    const embeddingStr = null; // full-text search only, no vector embeddings
 
     const sql = `
       INSERT INTO faqs (question, answer, short_answer, embedding, category, risk_level, is_onboarding_faq)
-      VALUES ($1, $2, $3, $4::vector, $5, $6, $7)
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
       RETURNING id, question, answer, short_answer, category, risk_level, is_onboarding_faq, status, created_at, updated_at
     `;
     const params = [
@@ -149,13 +147,11 @@ router.put('/:id', async (req, res, next) => {
       [id, currentAnswer]
     );
 
-    // Generate new embedding
-    const embedding = await generateEmbedding(`${question} ${answer}`);
-    const embeddingStr = `[${embedding.join(',')}]`;
+
 
     const updateSql = `
       UPDATE faqs 
-      SET question = $1, answer = $2, short_answer = $3, embedding = $4::vector, 
+      SET question = $1, answer = $2, short_answer = $3, embedding = $4,
           category = $5, risk_level = $6, is_onboarding_faq = $7, updated_at = NOW() 
       WHERE id = $8
       RETURNING id, question, answer, short_answer, category, risk_level, is_onboarding_faq, status, created_at, updated_at

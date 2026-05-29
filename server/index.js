@@ -7,6 +7,7 @@ import faqRoutes from './routes/faq.routes.js';
 import aiRoutes from './routes/ai.routes.js';
 import queryRoutes from './routes/query.routes.js';
 import adminRoutes from './routes/admin.routes.js';
+import communityRoutes from './routes/community.routes.js';
 import { errorHandler } from './middleware/errorHandler.js';
 
 const app = express();
@@ -40,6 +41,7 @@ app.use('/api/faq', faqRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/query', queryRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/community', communityRoutes);
 
 // Global Error Handler (must be mounted last)
 app.use(errorHandler);

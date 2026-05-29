@@ -1,40 +1,17 @@
 import express from 'express';
 import { query as dbQuery } from '../db/neon.js';
-import { searchWithVectors } from '../services/embedding.service.js';
+import { searchWithFullText } from '../services/embedding.service.js';
 import { ValidationError } from '../middleware/errorHandler.js';
+import OpenAI from 'openai';
 
 const router = express.Router();
 
-// Lazy Groq client
-let _groq = null;
-async function getGroq() {
-  if (!_groq) {
-    const OpenAI = (await import('openai')).default;
-    _groq = new OpenAI({
-      apiKey: process.env.GROQ_API_KEY,
-      baseURL: 'https://api.groq.com/openai/v1',
-    });
-  }
-  return _groq;
-}
-
-// GET /api/ai/models — probe Groq for available embedding + chat models
-router.get('/models', async (req, res, next) => {
-  try {
-    const groq = await getGroq();
-    const modelList = await groq.models.list();
-    const all = modelList.data || [];
-    const embeddings = all.filter(m => m.id.includes('embedding'));
-    const chats = all.filter(m =>
-      m.id.includes('llama') || m.id.includes('mixtral') || m.id.includes('qwen')
-    );
-    res.json({ embeddings, chats, all: all.map(m => m.id) });
-  } catch (err) {
-    next(err);
-  }
+// OpenAI client
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
 });
 
-// POST /api/ai/ask — 3-tier confidence pipeline via pgvector + Groq
+// POST /api/ai/ask - Ask Yaksha AI (PG full-text search + OpenAI LLM)
 router.post('/ask', async (req, res, next) => {
   try {
     const { query: userQuery } = req.body;
@@ -42,61 +19,55 @@ router.post('/ask', async (req, res, next) => {
       throw new ValidationError('Query is required');
     }
 
-    // Step 1: Vector search with temporal decay → get top match
-    const topFaqs = await searchWithVectors(userQuery.trim(), 3);
+    // Step 1: Full-text search in PostgreSQL — always returns up to 3 FAQs
+    const topFaqs = await searchWithFullText(userQuery.trim(), 3);
     const matchedFaq = topFaqs[0] || null;
 
-    let score = matchedFaq ? parseFloat(matchedFaq.confidence_score) : 0.0;
+    let score = matchedFaq ? parseFloat(matchedFaq.rank_score) : 0.0;
     if (isNaN(score) || score < 0) score = 0.0;
 
-    let answer = null;
-    let source = 'escalation';
+    // Yaksha ALWAYS gives an answer — use the best available match
+    let answer = matchedFaq ? (matchedFaq.short_answer || matchedFaq.answer) : null;
+    let source = matchedFaq ? 'db' : 'escalation';
 
-    // Step 2: 3-tier confidence routing
-    if (matchedFaq && score >= 0.96) {
-      // Tier 1 — High confidence: direct DB answer
-      source = 'db';
-      answer = matchedFaq.short_answer || matchedFaq.answer;
-    } else if (matchedFaq && score >= 0.70) {
-      // Tier 2 — Medium confidence: LLM refinement via Groq
-      source = 'llm';
-      try {
-        const groq = await getGroq();
-        const context = topFaqs
-          .map((f, i) => `FAQ #${i + 1}: "${f.question}" → "${f.short_answer || f.answer}"`)
-          .join('\n');
-
-        const chatCompletion = await groq.chat.completions.create({
-          model: 'llama-3.3-70b-versatile',
-          max_tokens: 250,
-          messages: [
-            {
-              role: 'system',
-              content:
-                'You are a concise FAQ assistant. Answer in one sentence. ' +
-                'Answer based strictly on the provided FAQs. Combine info from multiple ' +
-                'FAQs if needed. If the FAQs do not cover the query, say so honestly.',
-            },
-            {
-              role: 'user',
-              content:
-                `User query: "${userQuery}"\n\nRelevant FAQs:\n${context}`,
-            },
-          ],
-        });
-        answer = chatCompletion.choices[0].message.content.trim();
-      } catch (llmErr) {
-        console.error('Groq LLM call failed, falling back to short_answer:', llmErr);
-        answer = matchedFaq.short_answer || matchedFaq.answer;
+    if (matchedFaq) {
+      if (score >= 0.7) {
+        // Strong match — refine with OpenAI LLM using all top 3 as context
+        source = 'llm';
+        try {
+          const context = topFaqs
+            .map((f, i) => `FAQ #${i + 1}: "${f.question}" → "${f.short_answer || f.answer}"`)
+            .join('\n');
+          const chatCompletion = await openai.chat.completions.create({
+            model: 'gpt-4o-mini',
+            max_tokens: 250,
+            messages: [
+              {
+                role: 'system',
+                content:
+                  'You are a concise FAQ assistant. Answer in 1-2 sentences based strictly on the provided FAQs. ' +
+                  'Combine info from multiple FAQs if needed. If the FAQs don\'t cover the query, say so honestly.',
+              },
+              {
+                role: 'user',
+                content: `User query: "${userQuery}"\n\nRelevant FAQs:\n${context}`,
+              },
+            ],
+          });
+          answer = chatCompletion.choices[0].message.content.trim();
+        } catch (err) {
+          console.error('OpenAI LLM call failed, using short_answer:', err);
+          answer = matchedFaq.short_answer || matchedFaq.answer;
+          source = 'db';
+        }
+      } else {
+        // Weak or padded match — return short_answer directly
         source = 'db';
+        answer = matchedFaq.short_answer || matchedFaq.answer;
       }
-    } else {
-      // Tier 3 — Low confidence: escalate to support ticket
-      source = 'escalation';
-      answer = null;
     }
 
-    // Step 3: Always log the search event
+    // Always log the search event
     await dbQuery(
       `INSERT INTO search_logs (query_text, matched_faq_id, confidence_score, source)
        VALUES ($1, $2, $3, $4)`,
@@ -114,7 +85,7 @@ router.post('/ask', async (req, res, next) => {
         question: f.question,
         short_answer: f.short_answer || f.answer,
         category: f.category,
-        confidence: Math.round(parseFloat(f.confidence_score || 0) * 1000) / 1000,
+        confidence: Math.round(parseFloat(f.rank_score || 0) * 1000) / 1000,
       })),
     });
   } catch (error) {

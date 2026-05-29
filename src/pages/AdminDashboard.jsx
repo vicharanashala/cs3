@@ -2,11 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Lock, LayoutDashboard, Flame, PenLine, X, 
-  AlertTriangle, RefreshCw, CheckCircle, TrendingUp 
+  AlertTriangle, RefreshCw, CheckCircle, TrendingUp,
+  ShieldCheck, Trash2, MessageSquare, Eye, EyeOff, ChevronDown
 } from 'lucide-react';
 import { useApp } from '../store/AppContext';
 import { 
-  getAdminHeatmap, getAdminGaps, getAdminRageSessions, createFAQ 
+  getAdminHeatmap, getAdminGaps, getAdminRageSessions, createFAQ,
+  getAdminQueue, adminReviewAnswer, getAdminIssues, adminResolveIssue
 } from '../services/api';
 
 export function AdminDashboard() {
@@ -22,6 +24,13 @@ export function AdminDashboard() {
   const [gapsData, setGapsData] = useState([]);
   const [rageSessions, setRageSessions] = useState([]);
 
+  // Community Queue states
+  const [communityTab, setCommunityTab] = useState('unclear'); // 'spam' | 'unclear' | 'issues'
+  const [queueItems, setQueueItems] = useState([]);
+  const [issueItems, setIssueItems] = useState([]);
+  const [loadingQueue, setLoadingQueue] = useState(false);
+  const [queueLoadingId, setQueueLoadingId] = useState(null); // id being actioned
+
   // Modal and Toast states
   const [draftFaq, setDraftFaq] = useState(null); // FAQ record being drafted { question, answer, category, risk_level, is_onboarding_faq }
   const [toastMessage, setToastMessage] = useState('');
@@ -30,19 +39,17 @@ export function AdminDashboard() {
   useEffect(() => {
     const key = localStorage.getItem('adminKey');
     if (key) {
-      setIsAuthorized(true);
       fetchDashboardData();
     }
   }, []);
 
-  const handleLogin = (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
     if (!adminKey.trim()) return;
     
     // Store temporarily and test fetching dashboard data
     localStorage.setItem('adminKey', adminKey);
-    setIsAuthorized(true);
-    fetchDashboardData(adminKey);
+    await fetchDashboardData(adminKey);
   };
 
   const handleLogout = () => {
@@ -68,6 +75,9 @@ export function AdminDashboard() {
       if (heatmapRes.success) setHeatmapData(heatmapRes.data);
       if (gapsRes.success) setGapsData(gapsRes.data);
       if (rageRes.success) setRageSessions(rageRes.data);
+      
+      // Only authorize AFTER successful verification
+      setIsAuthorized(true);
     } catch (err) {
       console.error(err);
       setAuthError('Unauthorized or invalid admin key.');
@@ -96,6 +106,68 @@ export function AdminDashboard() {
 
     return () => clearInterval(interval);
   }, [isAuthorized]);
+
+  // ── Community Queue Fetchers ──────────────────────────────────────────────
+  const fetchQueue = async (tab) => {
+    setLoadingQueue(true);
+    try {
+      const res = await getAdminQueue(tab);
+      if (res.success) setQueueItems(res.data);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoadingQueue(false);
+    }
+  };
+
+  const fetchIssues = async () => {
+    try {
+      const res = await getAdminIssues();
+      if (res.success) setIssueItems(res.data);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  // Fetch queue whenever tab changes (only after authorized)
+  useEffect(() => {
+    if (isAuthorized) {
+      if (communityTab === 'issues') {
+        fetchIssues();
+      } else {
+        fetchQueue(communityTab);
+      }
+    }
+  }, [communityTab, isAuthorized]);
+
+  const handleReviewAnswer = async (id, action) => {
+    setQueueLoadingId(id);
+    try {
+      await adminReviewAnswer(id, action);
+      showToast(`Answer ${action}d successfully`);
+      // Remove from list
+      setQueueItems(prev => prev.filter(item => item.id !== id));
+    } catch (err) {
+      console.error(err);
+      showToast('Action failed. Try again.');
+    } finally {
+      setQueueLoadingId(null);
+    }
+  };
+
+  const handleResolveIssue = async (id, status) => {
+    setQueueLoadingId(id);
+    try {
+      await adminResolveIssue(id, status);
+      showToast(`Issue ${status}`);
+      setIssueItems(prev => prev.filter(item => item.id !== id));
+    } catch (err) {
+      console.error(err);
+      showToast('Action failed. Try again.');
+    } finally {
+      setQueueLoadingId(null);
+    }
+  };
 
   // 4. Draft FAQ Submission
   const handleDraftSubmit = async (e) => {
@@ -336,6 +408,201 @@ export function AdminDashboard() {
                 ))}
               </tbody>
             </table>
+          </div>
+        )}
+      </div>
+
+      {/* COMMUNITY QUEUE — Spam / Unclear / Issues */}
+      <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm space-y-4">
+        <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+          <div className="flex items-center space-x-2">
+            <ShieldCheck className="w-4 h-4 text-[#111827]" />
+            <h3 className="text-sm font-bold uppercase tracking-tight text-gray-500">Community Queue</h3>
+          </div>
+
+          {/* Tab switcher */}
+          <div className="flex items-center bg-gray-100 rounded-lg p-0.5 space-x-0.5">
+            {[
+              { key: 'unclear', label: 'Unclear' },
+              { key: 'spam',    label: 'Spam'    },
+              { key: 'issues',  label: 'Issues'  },
+            ].map(tab => (
+              <button
+                key={tab.key}
+                onClick={() => setCommunityTab(tab.key)}
+                className={`px-3 py-1.5 rounded-md text-xs font-semibold transition ${
+                  communityTab === tab.key
+                    ? 'bg-white text-[#111827] shadow-sm'
+                    : 'text-gray-400 hover:text-gray-600'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* ── UNCLEAR / SPAM tabs ── */}
+        {communityTab !== 'issues' && (
+          <div>
+            {loadingQueue ? (
+              <div className="py-8 text-center text-xs text-gray-400">Loading...</div>
+            ) : queueItems.length === 0 ? (
+              <div className="py-8 text-center">
+                <div className="mx-auto w-8 h-8 border-2 border-gray-200 rounded-full flex items-center justify-center mb-2">
+                  <CheckCircle className="w-4 h-4 text-gray-300" />
+                </div>
+                <p className="text-xs text-gray-400">Queue is empty — nothing to review.</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {queueItems.map(item => (
+                  <div key={item.id} className="border border-gray-200 rounded-lg p-4 space-y-3">
+                    {/* Card header */}
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center space-x-2 mb-1">
+                          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wide ${
+                            item.yaksha_decision === 'approved' ? 'bg-green-100 text-green-700' :
+                            item.yaksha_decision === 'spam'     ? 'bg-red-100 text-red-700' :
+                                                                 'bg-yellow-100 text-yellow-700'
+                          }`}>
+                            {item.yaksha_decision}
+                          </span>
+                          <span className="text-[10px] text-gray-400">
+                            conf {Math.round((item.yaksha_confidence || 0) * 100)}%
+                          </span>
+                          {item.display_name && (
+                            <span className="text-[10px] text-gray-400">by {item.display_name}</span>
+                          )}
+                          {item.reputation > 0 && (
+                            <span className="text-[10px] text-gray-400">★ {item.reputation}</span>
+                          )}
+                        </div>
+
+                        {/* FAQ context */}
+                        {item.faq_question && (
+                          <p className="text-[11px] text-gray-500 mb-1">
+                            FAQ: <span className="font-medium text-[#111827]">{item.faq_question}</span>
+                          </p>
+                        )}
+
+                        <p className="text-sm text-[#111827] font-medium">{item.answer_text}</p>
+                      </div>
+                    </div>
+
+                    {/* Yaksha reasoning */}
+                    {item.yaksha_reasoning && (
+                      <p className="text-[11px] text-gray-400 italic bg-gray-50 border border-gray-100 rounded px-2.5 py-1.5">
+                        Yaksha: {item.yaksha_reasoning}
+                      </p>
+                    )}
+
+                    {/* Action buttons */}
+                    <div className="flex items-center justify-end space-x-2 pt-1 border-t border-gray-100">
+                      <button
+                        onClick={() => handleReviewAnswer(item.id, 'approve')}
+                        disabled={queueLoadingId === item.id}
+                        className="flex items-center space-x-1.5 text-xs font-semibold text-green-700 hover:text-green-800 border border-green-200 hover:bg-green-50 px-3 py-1.5 rounded transition disabled:opacity-40"
+                      >
+                        {queueLoadingId === item.id ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle className="w-3.5 h-3.5" />}
+                        <span>Approve</span>
+                      </button>
+                      <button
+                        onClick={() => handleReviewAnswer(item.id, 'reject')}
+                        disabled={queueLoadingId === item.id}
+                        className="flex items-center space-x-1.5 text-xs font-semibold text-red-700 hover:text-red-800 border border-red-200 hover:bg-red-50 px-3 py-1.5 rounded transition disabled:opacity-40"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span>Reject</span>
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── ISSUES tab ── */}
+        {communityTab === 'issues' && (
+          <div>
+            {issueItems.length === 0 ? (
+              <div className="py-8 text-center">
+                <div className="mx-auto w-8 h-8 border-2 border-gray-200 rounded-full flex items-center justify-center mb-2">
+                  <CheckCircle className="w-4 h-4 text-gray-300" />
+                </div>
+                <p className="text-xs text-gray-400">No open issues — all clear!</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {issueItems.map(issue => (
+                  <div key={issue.id} className="border border-gray-200 rounded-lg p-4 space-y-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center space-x-2 mb-1 flex-wrap">
+                          {issue.faq_question && (
+                            <span className="text-[10px] font-medium bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded">
+                              FAQ: {issue.faq_question}
+                            </span>
+                          )}
+                          <span className="text-[10px] text-gray-400">
+                            Reported by {issue.reporter_username}
+                          </span>
+                          <span className="text-[10px] text-gray-400">
+                            {new Date(issue.created_at).toLocaleDateString()}
+                          </span>
+                        </div>
+
+                        {issue.suggested_question ? (
+                          <div className="space-y-1.5">
+                            <p className="text-[11px] text-gray-400 uppercase tracking-wide font-semibold">Suggested FAQ</p>
+                            <p className="text-sm font-semibold text-[#111827]">{issue.suggested_question}</p>
+                          </div>
+                        ) : null}
+
+                        <p className="text-sm text-[#111827]">{issue.reason}</p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-end space-x-2 pt-1 border-t border-gray-100">
+                      {/* Convert suggested FAQ → Draft FAQ */}
+                      {issue.suggested_question && (
+                        <button
+                          onClick={() => setDraftFaq({
+                            question: issue.suggested_question,
+                            answer: '',
+                            category: categoryOptions[0] || 'General',
+                            risk_level: 'low',
+                            is_onboarding_faq: false,
+                          })}
+                          className="flex items-center space-x-1.5 text-xs font-semibold text-[#111827] hover:text-black border border-[#111827] hover:bg-[#111827] hover:text-white px-3 py-1.5 rounded transition"
+                        >
+                          <PenLine className="w-3.5 h-3.5" />
+                          <span>Draft FAQ</span>
+                        </button>
+                      )}
+                      <button
+                        onClick={() => handleResolveIssue(issue.id, 'resolved')}
+                        disabled={queueLoadingId === issue.id}
+                        className="flex items-center space-x-1.5 text-xs font-semibold text-green-700 hover:text-green-800 border border-green-200 hover:bg-green-50 px-3 py-1.5 rounded transition disabled:opacity-40"
+                      >
+                        <CheckCircle className="w-3.5 h-3.5" />
+                        <span>Resolve</span>
+                      </button>
+                      <button
+                        onClick={() => handleResolveIssue(issue.id, 'dismissed')}
+                        disabled={queueLoadingId === issue.id}
+                        className="flex items-center space-x-1.5 text-xs font-semibold text-gray-600 hover:text-gray-800 border border-gray-200 hover:bg-gray-50 px-3 py-1.5 rounded transition disabled:opacity-40"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                        <span>Dismiss</span>
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>

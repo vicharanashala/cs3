@@ -4,10 +4,11 @@ import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 import rehypeSanitize from 'rehype-sanitize';
 import { 
-  Send, Bot, TrendingUp, AlertTriangle, Clipboard, Check, Info, X
+  Send, Bot, TrendingUp, AlertTriangle, Clipboard, Check, Info, X,
+  ThumbsUp, ThumbsDown, ChevronDown, ChevronUp
 } from 'lucide-react';
 import { useApp } from '../store/AppContext';
-import { askAI } from '../services/api';
+import { askAI, submitCommunityAnswer } from '../services/api';
 
 // Helper component for copying code block contents
 function CopyButton({ text }) {
@@ -67,6 +68,22 @@ export function YakshaAI() {
 
   // Selected related FAQ from chat (click to preview)
   const [selectedRelatedFaq, setSelectedRelatedFaq] = useState(null);
+
+  // Agree / Disagree / Submit-answer state (per message index)
+  // Map of msgIndex → 'idle' | 'disagree-form' | 'submitting' | 'done' | 'error'
+  const [msgFeedbackState, setMsgFeedbackState] = useState({});
+  const [msgDisagreeAnswer, setMsgDisagreeAnswer] = useState({});  // msgIndex → text
+  const [msgEvaluationResult, setMsgEvaluationResult] = useState({}); // msgIndex → {decision, confidence, reasoning}
+
+  // Visitor ID — stable anonymous identity from localStorage
+  const [visitorId] = useState(() => {
+    let vid = localStorage.getItem('samagama_visitor_id');
+    if (!vid) {
+      vid = `v_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+      localStorage.setItem('samagama_visitor_id', vid);
+    }
+    return vid;
+  });
 
   const chatEndRef = useRef(null);
 
@@ -145,6 +162,63 @@ export function YakshaAI() {
   const handleEscapeHatch = () => {
     setLastFailedQuery(failedQueryText);
     navigate('/escalate');
+  };
+
+  // ── Agree / Disagree handlers ──────────────────────────────────────────────
+
+  const handleAgree = (msgIndex) => {
+    setMsgFeedbackState(prev => ({ ...prev, [msgIndex]: 'done' }));
+  };
+
+  const handleDisagreeClick = (msgIndex) => {
+    setMsgFeedbackState(prev => ({ ...prev, [msgIndex]: 'disagree-form' }));
+  };
+
+  const handleDisagreeCancel = (msgIndex) => {
+    setMsgFeedbackState(prev => {
+      const next = { ...prev };
+      delete next[msgIndex];
+      return next;
+    });
+    setMsgDisagreeAnswer(prev => {
+      const next = { ...prev };
+      delete next[msgIndex];
+      return next;
+    });
+  };
+
+  const handleSubmitBetterAnswer = async (msgIndex) => {
+    const answerText = (msgDisagreeAnswer[msgIndex] || '').trim();
+    if (answerText.length < 10) return;
+
+    const msg = messages[msgIndex];
+    const topFaq = msg.relatedFaqs?.[0];
+    if (!topFaq?.id) return;
+
+    setMsgFeedbackState(prev => ({ ...prev, [msgIndex]: 'submitting' }));
+
+    try {
+      const result = await submitCommunityAnswer({
+        faq_id: topFaq.id,
+        answer_text: answerText,
+        visitor_id: visitorId,
+        display_name: 'Anonymous',
+        comment: null,
+      });
+
+      setMsgEvaluationResult(prev => ({
+        ...prev,
+        [msgIndex]: {
+          decision: result.evaluation?.decision || 'unclear',
+          confidence: result.evaluation?.confidence || 0,
+          reasoning: result.evaluation?.reasoning || '',
+        },
+      }));
+      setMsgFeedbackState(prev => ({ ...prev, [msgIndex]: 'done' }));
+    } catch (err) {
+      console.error(err);
+      setMsgFeedbackState(prev => ({ ...prev, [msgIndex]: 'error' }));
+    }
   };
 
   // Sparkline coordinates mapping helper
@@ -299,6 +373,95 @@ export function YakshaAI() {
                       )}
                     </div>
                   ))}
+                </div>
+              )}
+
+              {/* ── Agree / Disagree UI — only on assistant messages after greeting ── */}
+              {msg.role === 'assistant' && index > 0 && msg.relatedFaqs?.length > 0 && (
+                <div className="mt-3 w-full max-w-[85%]">
+                  {msgFeedbackState[index] === 'done' ? (
+                    /* ── Done state ── */
+                    <div className="flex items-center space-x-2 text-xs text-green-700 bg-green-50 border border-green-200 rounded-lg px-3 py-2">
+                      <Check className="w-3.5 h-3.5 text-green-600 shrink-0" />
+                      {msgEvaluationResult[index] ? (
+                        <span>
+                          Yaksha evaluated your suggestion as{' '}
+                          <span className={`font-semibold uppercase ${
+                            msgEvaluationResult[index].decision === 'approved' ? 'text-green-700' :
+                            msgEvaluationResult[index].decision === 'spam' ? 'text-red-700' : 'text-yellow-700'
+                          }`}>
+                            {msgEvaluationResult[index].decision}
+                          </span>
+                          {' '}({Math.round(msgEvaluationResult[index].confidence * 100)}% confidence)
+                          {msgEvaluationResult[index].reasoning && (
+                            <span className="text-gray-500 ml-1">— {msgEvaluationResult[index].reasoning}</span>
+                          )}
+                        </span>
+                      ) : (
+                        <span>Thanks for the feedback!</span>
+                      )}
+                    </div>
+                  ) : msgFeedbackState[index] === 'error' ? (
+                    <div className="flex items-center space-x-2 text-xs text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+                      <AlertTriangle className="w-3.5 h-3.5 text-red-600 shrink-0" />
+                      <span>Submission failed. Please try again.</span>
+                    </div>
+                  ) : msgFeedbackState[index] === 'disagree-form' ? (
+                    /* ── Disagree: submit better answer form ── */
+                    <div className="border border-gray-200 rounded-lg p-4 bg-gray-50 space-y-3">
+                      <p className="text-xs font-semibold text-gray-700">
+                        Submit a better answer for: <span className="font-normal text-gray-500">{msg.relatedFaqs[0].question}</span>
+                      </p>
+                      <textarea
+                        value={msgDisagreeAnswer[index] || ''}
+                        onChange={(e) => setMsgDisagreeAnswer(prev => ({ ...prev, [index]: e.target.value }))}
+                        placeholder="Write your improved answer here..."
+                        rows={3}
+                        className="w-full text-xs border border-gray-200 rounded-lg p-3 resize-none focus:outline-none focus:ring-1 focus:ring-[#111827] focus:border-[#111827] text-[#111827]"
+                      />
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] text-gray-400">
+                          Min. 10 characters ({(msgDisagreeAnswer[index] || '').trim().length} typed)
+                        </span>
+                        <div className="flex items-center space-x-2">
+                          <button
+                            onClick={() => handleDisagreeCancel(index)}
+                            className="text-xs text-gray-500 hover:text-gray-700 px-2 py-1 rounded transition"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            onClick={() => handleSubmitBetterAnswer(index)}
+                            disabled={(msgDisagreeAnswer[index] || '').trim().length < 10 || msgFeedbackState[index] === 'submitting'}
+                            className="text-xs bg-[#111827] text-white hover:bg-black px-3 py-1.5 rounded disabled:opacity-40 transition"
+                          >
+                            {msgFeedbackState[index] === 'submitting' ? 'Submitting...' : 'Submit Answer'}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    /* ── Default: show agree/disagree buttons ── */
+                    <div className="flex items-center space-x-2 mt-1">
+                      <span className="text-[10px] text-gray-400 mr-1">Was this helpful?</span>
+                      <button
+                        onClick={() => handleAgree(index)}
+                        className="flex items-center space-x-1 text-[11px] text-gray-500 hover:text-green-600 border border-gray-200 hover:border-green-300 px-2 py-1 rounded transition"
+                        title="Yes, this helped"
+                      >
+                        <ThumbsUp className="w-3 h-3" />
+                        <span>Agree</span>
+                      </button>
+                      <button
+                        onClick={() => handleDisagreeClick(index)}
+                        className="flex items-center space-x-1 text-[11px] text-gray-500 hover:text-red-600 border border-gray-200 hover:border-red-300 px-2 py-1 rounded transition"
+                        title="No, I have a better answer"
+                      >
+                        <ThumbsDown className="w-3 h-3" />
+                        <span>Disagree</span>
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
