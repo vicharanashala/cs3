@@ -2,11 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Lock, LayoutDashboard, Flame, PenLine, X, 
-  AlertTriangle, RefreshCw, CheckCircle, TrendingUp 
+  AlertTriangle, RefreshCw, CheckCircle, TrendingUp, Search, Hash, UserCheck, Trash2 
 } from 'lucide-react';
 import { useApp } from '../store/AppContext';
 import { 
-  getAdminHeatmap, getAdminGaps, getAdminRageSessions, createFAQ 
+  getAdminHeatmap, getAdminGaps, getAdminRageSessions, createFAQ,
+  getAdminQueue, adminReviewQueueItem, adminDeleteCommunityHash
 } from '../services/api';
 
 export function AdminDashboard() {
@@ -22,8 +23,13 @@ export function AdminDashboard() {
   const [gapsData, setGapsData] = useState([]);
   const [rageSessions, setRageSessions] = useState([]);
 
+  // Community Queue states
+  const [queueItems, setQueueItems] = useState([]);
+  const [hashSearch, setHashSearch] = useState('');
+  const [queueLoading, setQueueLoading] = useState(false);
+
   // Modal and Toast states
-  const [draftFaq, setDraftFaq] = useState(null); // FAQ record being drafted { question, answer, category, risk_level, is_onboarding_faq }
+  const [draftFaq, setDraftFaq] = useState(null);
   const [toastMessage, setToastMessage] = useState('');
 
   // 1. Auth Gate Verification on mount
@@ -32,6 +38,7 @@ export function AdminDashboard() {
     if (key) {
       setIsAuthorized(true);
       fetchDashboardData();
+      fetchQueue();
     }
   }, []);
 
@@ -43,6 +50,7 @@ export function AdminDashboard() {
     localStorage.setItem('adminKey', adminKey);
     setIsAuthorized(true);
     fetchDashboardData(adminKey);
+    fetchQueue();
   };
 
   const handleLogout = () => {
@@ -76,6 +84,39 @@ export function AdminDashboard() {
       setIsAuthorized(false);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // Fetch Community Queue
+  const fetchQueue = async (hash) => {
+    setQueueLoading(true);
+    try {
+      const res = await getAdminQueue(hash || undefined);
+      if (res.success) setQueueItems(res.data);
+    } catch (err) {
+      console.error('Queue fetch failed:', err);
+    } finally {
+      setQueueLoading(false);
+    }
+  };
+
+  const handleQueueAction = async (id, action) => {
+    try {
+      await adminReviewQueueItem(id, action);
+      showToast(action === 'approve' ? 'Answer approved & written to FAQ!' : 'Answer rejected.');
+      fetchQueue(hashSearch || undefined);
+    } catch (err) {
+      showToast('Action failed.');
+    }
+  };
+
+  const handleDeleteHash = async (hash) => {
+    try {
+      await adminDeleteCommunityHash(hash);
+      showToast(`Hash ${hash} deleted.`);
+      fetchQueue(hashSearch || undefined);
+    } catch (err) {
+      showToast('Delete failed.');
     }
   };
 
@@ -459,6 +500,116 @@ export function AdminDashboard() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* SECTION 4: COMMUNITY MODERATION QUEUE */}
+      <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm space-y-4">
+        <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+          <div className="flex items-center space-x-2">
+            <UserCheck className="w-4 h-4 text-[#111827]" />
+            <h3 className="text-sm font-bold uppercase tracking-tight text-gray-500">Community Moderation Queue</h3>
+          </div>
+          <div className="flex items-center space-x-2">
+            <div className="relative">
+              <Hash className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search by hash..."
+                value={hashSearch}
+                onChange={(e) => setHashSearch(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && fetchQueue(hashSearch)}
+                className="pl-8 pr-3 py-1.5 text-xs border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-[#111827] w-40"
+              />
+            </div>
+            <button
+              onClick={() => fetchQueue(hashSearch || undefined)}
+              className="p-1.5 border border-gray-200 rounded-md hover:bg-gray-50 transition text-gray-500"
+              title="Search Queue"
+            >
+              <Search className="w-3.5 h-3.5" />
+            </button>
+            <button
+              onClick={() => { setHashSearch(''); fetchQueue(); }}
+              className="text-[10px] text-gray-500 hover:text-[#111827] underline font-semibold"
+            >
+              Show All
+            </button>
+          </div>
+        </div>
+
+        {queueLoading ? (
+          <p className="text-xs text-gray-400 py-4 text-center">Loading queue...</p>
+        ) : queueItems.length === 0 ? (
+          <div className="text-center py-8">
+            <CheckCircle className="w-8 h-8 text-gray-200 mx-auto mb-2" />
+            <p className="text-xs text-gray-400">No pending community answers to review.</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {queueItems.map(item => (
+              <div key={item.id} className="border border-amber-200 bg-amber-50/50 rounded-lg p-4 space-y-3">
+                {/* Header row */}
+                <div className="flex items-start justify-between">
+                  <div className="space-y-1">
+                    <div className="flex items-center space-x-2">
+                      <span className="bg-amber-100 text-amber-800 text-[9px] font-bold uppercase tracking-wide px-2 py-0.5 rounded">Pending Review</span>
+                      <span className="bg-gray-100 text-gray-600 text-[9px] font-mono px-2 py-0.5 rounded">#{item.hash_id}</span>
+                      <span className="text-[10px] text-gray-400">conf: {Math.round((item.yaksha_confidence || 0) * 100)}%</span>
+                    </div>
+                    <p className="text-xs font-semibold text-[#111827] mt-1">FAQ: {item.question}</p>
+                  </div>
+                  <span className="text-[10px] text-gray-400 shrink-0">{new Date(item.created_at).toLocaleDateString()}</span>
+                </div>
+
+                {/* Compare answers */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div className="bg-white border border-gray-200 rounded p-3">
+                    <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wider">Current Answer</span>
+                    <p className="text-xs text-gray-600 mt-1 line-clamp-4 leading-relaxed">{item.current_answer}</p>
+                  </div>
+                  <div className="bg-white border border-green-200 rounded p-3">
+                    <span className="text-[9px] font-bold text-green-700 uppercase tracking-wider">Suggested Answer</span>
+                    <p className="text-xs text-[#111827] mt-1 line-clamp-4 leading-relaxed font-medium">{item.answer_text}</p>
+                  </div>
+                </div>
+
+                {/* Yaksha reasoning */}
+                {item.yaksha_reasoning && (
+                  <div className="bg-gray-50 border border-gray-100 rounded p-2.5">
+                    <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wider">Yaksha's Reasoning</span>
+                    <p className="text-[11px] text-gray-600 mt-1 italic">"{item.yaksha_reasoning}"</p>
+                  </div>
+                )}
+
+                {/* Footer: contributor + actions */}
+                <div className="flex items-center justify-between pt-2 border-t border-amber-100">
+                  <span className="text-[10px] text-gray-500">Submitted by <strong className="text-gray-700">{item.contributor_name || 'Anonymous'}</strong></span>
+                  <div className="flex items-center space-x-2">
+                    <button
+                      onClick={() => handleQueueAction(item.id, 'approve')}
+                      className="bg-green-600 hover:bg-green-700 text-white text-[10px] font-bold px-3 py-1.5 rounded transition"
+                    >
+                      ✓ Approve & Write
+                    </button>
+                    <button
+                      onClick={() => handleQueueAction(item.id, 'reject')}
+                      className="bg-white border border-red-300 text-red-600 hover:bg-red-50 text-[10px] font-bold px-3 py-1.5 rounded transition"
+                    >
+                      ✗ Reject
+                    </button>
+                    <button
+                      onClick={() => handleDeleteHash(item.hash_id)}
+                      className="p-1.5 text-gray-400 hover:text-red-600 transition"
+                      title="Delete permanently"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

@@ -1,7 +1,6 @@
 import express from 'express';
 import { query, pool } from '../db/neon.js';
 import { get, set, del } from '../services/cache.service.js';
-import { generateEmbedding } from '../services/embedding.service.js';
 import { ValidationError, NotFoundError } from '../middleware/errorHandler.js';
 
 const router = express.Router();
@@ -15,7 +14,7 @@ router.get('/', async (req, res, next) => {
     }
 
     const sql = `
-      SELECT id, question, short_answer, category, risk_level, is_onboarding_faq, updated_at 
+      SELECT id, question, answer, short_answer, category, risk_level, is_onboarding_faq, updated_at 
       FROM faqs 
       WHERE status = 'published' 
       ORDER BY created_at DESC
@@ -93,20 +92,15 @@ router.post('/', async (req, res, next) => {
       throw new ValidationError('Question and Answer are required');
     }
 
-    // Generate semantic embedding
-    const embedding = await generateEmbedding(`${question} ${answer}`);
-    const embeddingStr = `[${embedding.join(',')}]`;
-
     const sql = `
-      INSERT INTO faqs (question, answer, short_answer, embedding, category, risk_level, is_onboarding_faq)
-      VALUES ($1, $2, $3, $4::vector, $5, $6, $7)
+      INSERT INTO faqs (question, answer, short_answer, category, risk_level, is_onboarding_faq)
+      VALUES ($1, $2, $3, $4, $5, $6)
       RETURNING id, question, answer, short_answer, category, risk_level, is_onboarding_faq, status, created_at, updated_at
     `;
     const params = [
       question,
       answer,
       short_answer || null,
-      embeddingStr,
       category || 'General',
       risk_level || 'low',
       is_onboarding_faq === true || is_onboarding_faq === 'true'
@@ -125,7 +119,7 @@ router.post('/', async (req, res, next) => {
 
 // PUT /api/faq/:id - Update FAQ (records history, regenerates embedding, invalidates cache)
 router.put('/:id', async (req, res, next) => {
-  const client = await pool.connect();
+  const client = await pool().connect();
   try {
     const { id } = req.params;
     const { question, answer, short_answer, category, risk_level, is_onboarding_faq } = req.body;
@@ -149,22 +143,17 @@ router.put('/:id', async (req, res, next) => {
       [id, currentAnswer]
     );
 
-    // Generate new embedding
-    const embedding = await generateEmbedding(`${question} ${answer}`);
-    const embeddingStr = `[${embedding.join(',')}]`;
-
     const updateSql = `
       UPDATE faqs 
-      SET question = $1, answer = $2, short_answer = $3, embedding = $4::vector, 
-          category = $5, risk_level = $6, is_onboarding_faq = $7, updated_at = NOW() 
-      WHERE id = $8
+      SET question = $1, answer = $2, short_answer = $3, 
+          category = $4, risk_level = $5, is_onboarding_faq = $6, updated_at = NOW() 
+      WHERE id = $7
       RETURNING id, question, answer, short_answer, category, risk_level, is_onboarding_faq, status, created_at, updated_at
     `;
     const params = [
       question,
       answer,
       short_answer || null,
-      embeddingStr,
       category || 'General',
       risk_level || 'low',
       is_onboarding_faq === true || is_onboarding_faq === 'true',

@@ -4,11 +4,8 @@ import adminAuth from '../middleware/adminAuth.js';
 
 const router = express.Router();
 
-// Apply adminAuth middleware to ALL routes in this file
-router.use(adminAuth);
-
-// GET /api/admin/gaps - Identify queries without matching FAQs
-router.get('/gaps', async (req, res, next) => {
+// GET /api/admin/gaps - Identify queries without matching FAQs (admin-only)
+router.get('/gaps', adminAuth, async (req, res, next) => {
   try {
     const sql = `
       SELECT query_text, COUNT(*) as frequency
@@ -25,8 +22,8 @@ router.get('/gaps', async (req, res, next) => {
   }
 });
 
-// GET /api/admin/heatmap - Heatmap analysis of categories, confidence, and volume
-router.get('/heatmap', async (req, res, next) => {
+// GET /api/admin/heatmap - Heatmap analysis of categories, confidence, and volume (admin-only)
+router.get('/heatmap', adminAuth, async (req, res, next) => {
   try {
     const sql = `
       SELECT 
@@ -45,8 +42,29 @@ router.get('/heatmap', async (req, res, next) => {
   }
 });
 
-// GET /api/admin/rage-sessions - Detect users attempting the same query repeatedly
-router.get('/rage-sessions', async (req, res, next) => {
+// GET /api/admin/popular - Top FAQs by search+vote frequency (public)
+router.get('/popular', async (req, res, next) => {
+  try {
+    const sql = `
+      SELECT f.id, f.question, f.short_answer, f.category,
+             COUNT(s.id) AS search_count,
+             SUM(CASE WHEN s.confidence_score = 1.0 THEN 1 ELSE 0 END) AS upvotes
+      FROM faqs f
+      LEFT JOIN search_logs s ON s.matched_faq_id = f.id
+      WHERE f.status = 'published'
+      GROUP BY f.id
+      ORDER BY search_count DESC, upvotes DESC
+      LIMIT 8
+    `;
+    const result = await query(sql);
+    res.status(200).json({ success: true, data: result.rows });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// GET /api/admin/rage-sessions - Detect users attempting the same query repeatedly (admin-only)
+router.get('/rage-sessions', adminAuth, async (req, res, next) => {
   try {
     const sql = `
       SELECT 
@@ -62,6 +80,69 @@ router.get('/rage-sessions', async (req, res, next) => {
     `;
     const result = await query(sql);
     res.status(200).json({ success: true, data: result.rows });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// GET /api/admin/queue - View community answers awaiting review
+router.get('/queue', adminAuth, async (req, res, next) => {
+  try {
+    const { hash } = req.query;
+    let sql = `
+      SELECT c.*, f.question, f.answer as current_answer
+      FROM community_answers c
+      JOIN faqs f ON c.faq_id = f.id
+      WHERE c.yaksha_decision = 'admin_review'
+    `;
+    const params = [];
+    
+    if (hash) {
+      sql += ` AND c.hash_id = $1`;
+      params.push(hash);
+    }
+    
+    sql += ` ORDER BY c.created_at DESC`;
+    
+    const result = await query(sql, params);
+    res.status(200).json({ success: true, data: result.rows });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// PUT /api/admin/queue/:id - Approve or reject community answer
+router.put('/queue/:id', adminAuth, async (req, res, next) => {
+  try {
+    const { action } = req.body; // 'approve' or 'reject'
+    const answerId = req.params.id;
+
+    if (action === 'approve') {
+      const getRes = await query('SELECT faq_id, answer_text FROM community_answers WHERE id = $1', [answerId]);
+      if (getRes.rows.length === 0) return res.status(404).json({ error: 'Not found' });
+      
+      const { faq_id, answer_text } = getRes.rows[0];
+      const faqRes = await query('SELECT answer FROM faqs WHERE id = $1', [faq_id]);
+      const officialAnswer = faqRes.rows[0].answer;
+      
+      await query(`INSERT INTO faq_history (faq_id, previous_answer) VALUES ($1, $2)`, [faq_id, officialAnswer]);
+      await query(`UPDATE faqs SET answer = $1, short_answer = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2`, [answer_text, faq_id]);
+      await query(`UPDATE community_answers SET yaksha_decision = 'approved' WHERE id = $1`, [answerId]);
+    } else {
+      await query(`UPDATE community_answers SET yaksha_decision = 'spam' WHERE id = $1`, [answerId]);
+    }
+
+    res.json({ success: true });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// DELETE /api/admin/community/:hash - Delete/revert by hash
+router.delete('/community/:hash', adminAuth, async (req, res, next) => {
+  try {
+    await query(`DELETE FROM community_answers WHERE hash_id = $1`, [req.params.hash]);
+    res.json({ success: true });
   } catch (error) {
     next(error);
   }

@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 import rehypeSanitize from 'rehype-sanitize';
 import { 
-  Send, Bot, TrendingUp, AlertTriangle, Clipboard, Check, Info 
+  Send, Bot, TrendingUp, AlertTriangle, Clipboard, Check, Info, X
 } from 'lucide-react';
 import { useApp } from '../store/AppContext';
 import { askAI } from '../services/api';
@@ -53,8 +53,10 @@ export function YakshaAI() {
       window.history.replaceState({}, document.title);
     }
   }, [location]);
+
+  // Message shape: { role, content, confidence, relatedFaqs: [{id, question, short_answer, category, confidence}] }
   const [messages, setMessages] = useState([
-    { role: 'assistant', content: 'Greeting seeker. I am **Yaksha**, the Samagama semantic intelligence. Ask me anything, and I shall query the vectors.', confidence: 1.0 }
+    { role: 'assistant', content: 'Greetings seeker. I am **Yaksha**, the Samagama semantic intelligence. Ask me anything, and I shall search the knowledge base for relevant FAQs.', confidence: 1.0, relatedFaqs: [] }
   ]);
 
   // Escape Hatch tracking states
@@ -62,6 +64,9 @@ export function YakshaAI() {
   const [queryCount, setQueryCount] = useState(0);
   const [showEscapeBanner, setShowEscapeBanner] = useState(false);
   const [failedQueryText, setFailedQueryText] = useState('');
+
+  // Selected related FAQ from chat (click to preview)
+  const [selectedRelatedFaq, setSelectedRelatedFaq] = useState(null);
 
   const chatEndRef = useRef(null);
 
@@ -105,7 +110,8 @@ export function YakshaAI() {
         setMessages(prev => [...prev, {
           role: 'assistant',
           content: response.answer || 'No matched FAQ answers could be extracted.',
-          confidence: aiScore
+          confidence: aiScore,
+          relatedFaqs: response.related_faqs || []
         }]);
 
         // Escape hatch triggers:
@@ -252,6 +258,49 @@ export function YakshaAI() {
                   <p className="whitespace-pre-line">{msg.content}</p>
                 )}
               </div>
+
+              {/* Related FAQs — top 3 matches shown as clickable cards */}
+              {msg.role === 'assistant' && msg.relatedFaqs?.length > 0 && (
+                <div className="mt-2 w-full max-w-[85%] space-y-1.5">
+                  <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider px-1">
+                    Related FAQs
+                  </p>
+                  {msg.relatedFaqs.map((faq, i) => (
+                    <div
+                      key={faq.id}
+                      onClick={() => setSelectedRelatedFaq(faq)}
+                      className="w-full text-left bg-gray-50 border border-gray-200 hover:border-[#111827] p-3 rounded-lg cursor-pointer transition group"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-start gap-2 flex-1 min-w-0">
+                          <span className="text-[10px] font-mono text-gray-300 mt-0.5 shrink-0">
+                            #{i + 1}
+                          </span>
+                          <p className="text-xs font-semibold text-[#111827] line-clamp-1 group-hover:text-black">
+                            {faq.question}
+                          </p>
+                        </div>
+                        {faq.confidence !== undefined && (
+                          <span className={`text-[10px] font-mono shrink-0 ${
+                            faq.confidence >= 0.7 ? 'text-green-600' :
+                            faq.confidence >= 0.3 ? 'text-yellow-600' : 'text-gray-400'
+                          }`}>
+                            {Math.round(faq.confidence * 100)}%
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[11px] text-gray-500 mt-1 ml-5 line-clamp-2">
+                        {faq.short_answer}
+                      </p>
+                      {faq.category && (
+                        <span className="mt-1.5 ml-5 inline-block text-[9px] font-medium text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">
+                          {faq.category}
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           ))}
 
@@ -269,6 +318,50 @@ export function YakshaAI() {
               </div>
             </div>
           )}
+
+          {/* Selected related FAQ preview panel */}
+          <AnimatePresence>
+            {selectedRelatedFaq && (
+              <motion.div
+                initial={{ opacity: 0, y: 8, scale: 0.98 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 8, scale: 0.98 }}
+                className="mt-2 p-5 bg-white border border-[#111827] rounded-lg shadow-md text-left relative"
+              >
+                <button
+                  onClick={() => setSelectedRelatedFaq(null)}
+                  className="absolute top-3 right-3 text-gray-400 hover:text-[#111827] transition"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+                <span className="bg-[#111827] text-white text-[10px] px-2 py-0.5 rounded font-medium tracking-wide uppercase">
+                  {selectedRelatedFaq.category || 'FAQ Result'}
+                </span>
+                <h3 className="font-bold text-base text-[#111827] mt-2 mb-3">{selectedRelatedFaq.question}</h3>
+                <p className="text-sm text-gray-600 leading-relaxed whitespace-pre-line">
+                  {selectedRelatedFaq.short_answer}
+                </p>
+                <div className="mt-3 pt-3 border-t border-gray-100 flex items-center justify-between">
+                  <span className={`text-[10px] font-mono ${
+                    selectedRelatedFaq.confidence >= 0.7 ? 'text-green-600' :
+                    selectedRelatedFaq.confidence >= 0.3 ? 'text-yellow-600' : 'text-gray-400'
+                  }`}>
+                    match: {Math.round((selectedRelatedFaq.confidence || 0) * 100)}%
+                  </span>
+                  <button
+                    onClick={() => {
+                      setMessages(prev => [...prev, { role: 'user', content: `Tell me more about: ${selectedRelatedFaq.question}` }]);
+                      setInputVal(`Tell me more about: ${selectedRelatedFaq.question}`);
+                      setSelectedRelatedFaq(null);
+                    }}
+                    className="text-xs font-semibold text-[#111827] hover:text-black border border-[#111827] hover:bg-[#111827] hover:text-white px-3 py-1.5 rounded transition"
+                  >
+                    Ask more →
+                  </button>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           <div ref={chatEndRef} />
         </div>
@@ -330,6 +423,18 @@ export function YakshaAI() {
                 Scores above 96% use direct db answers. Scores between 70-95% trigger LLM refinement. Scores under 70% escalate to ticket review.
               </span>
             </div>
+          </div>
+        </div>
+
+        {/* Permanent Escalation Option */}
+        <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
+          <div className="flex flex-col items-center text-center space-y-3">
+             <Clipboard className="w-5 h-5 text-gray-400" />
+             <h3 className="text-sm font-semibold text-[#111827]">Need Human Help?</h3>
+             <p className="text-xs text-gray-500">If Yaksha isn't solving your problem, you can manually raise a query to our support engineers.</p>
+             <button onClick={() => navigate('/escalate')} className="bg-white border border-[#111827] text-[#111827] hover:bg-gray-50 font-semibold px-4 py-2 text-xs rounded transition mt-2 w-full">
+               Raise a Query
+             </button>
           </div>
         </div>
       </div>

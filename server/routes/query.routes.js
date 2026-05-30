@@ -1,13 +1,13 @@
 import express from 'express';
 import OpenAI from 'openai';
 import { query as dbQuery, pool } from '../db/neon.js';
-import { generateEmbedding } from '../services/embedding.service.js';
 import { del } from '../services/cache.service.js';
 import { ValidationError, NotFoundError } from '../middleware/errorHandler.js';
 
 const router = express.Router();
 const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY || 'placeholder-key-for-now',
+  apiKey: process.env.OPENAI_API_KEY,
+  baseURL: process.env.OPENAI_BASE_URL,
 });
 
 // POST /api/query - Submit a new support query
@@ -54,7 +54,7 @@ router.get('/:id', async (req, res, next) => {
 
 // PATCH /api/query/:id - Update status (triggers auto-FAQ creation upon 'closed')
 router.patch('/:id', async (req, res, next) => {
-  const client = await pool.connect();
+  const client = await pool().connect();
   try {
     const { id } = req.params;
     const { status } = req.body;
@@ -86,7 +86,7 @@ router.patch('/:id', async (req, res, next) => {
     if (status === 'closed' && currentQuery.status !== 'closed') {
       try {
         const response = await openai.chat.completions.create({
-          model: 'gpt-3.5-turbo',
+          model: process.env.OPENAI_MODEL || 'llama-3.1-8b-instant',
           response_format: { type: 'json_object' },
           messages: [
             { role: 'system', content: 'You are a technical FAQ generator. Return only valid JSON.' },
@@ -102,15 +102,11 @@ router.patch('/:id', async (req, res, next) => {
 
         const faqData = JSON.parse(response.choices[0].message.content.trim());
         if (faqData && faqData.question && faqData.answer) {
-          // Generate embedding for draft FAQ
-          const embedding = await generateEmbedding(`${faqData.question} ${faqData.answer}`);
-          const embeddingStr = `[${embedding.join(',')}]`;
-
           const insertFaqSql = `
-            INSERT INTO faqs (question, answer, embedding, status, is_onboarding_faq)
-            VALUES ($1, $2, $3::vector, 'pending_review', false)
+            INSERT INTO faqs (question, answer, status, is_onboarding_faq)
+            VALUES ($1, $2, 'pending_review', false)
           `;
-          await client.query(insertFaqSql, [faqData.question, faqData.answer, embeddingStr]);
+          await client.query(insertFaqSql, [faqData.question, faqData.answer]);
 
           // Clear cache
           del('all_faqs');

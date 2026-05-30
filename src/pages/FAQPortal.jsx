@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   BookOpen, X, Search, Clock, ThumbsUp, ThumbsDown, 
@@ -6,11 +7,13 @@ import {
 } from 'lucide-react';
 import { useApp } from '../store/AppContext';
 import { 
-  getFAQs, getOnboardingFAQs, getFAQHistory, askAI, voteFAQ 
+  getFAQs, getOnboardingFAQs, getFAQHistory, askAI, voteFAQ,
+  getAdminPopular, getCommunityContributions, suggestCommunityAnswer
 } from '../services/api';
 
 export function FAQPortal() {
   const { isLoading, setIsLoading } = useApp();
+  const navigate = useNavigate();
   
   // Onboarding Checklist
   const [showOnboarding, setShowOnboarding] = useState(false);
@@ -35,6 +38,19 @@ export function FAQPortal() {
   // Voting Status Tracker ({ [faqId]: 'upvoted' | 'downvoted_pending' | 'voted_done' })
   const [votesState, setVotesState] = useState({});
 
+  // Popular / Frequently Asked FAQs
+  const [popularFaqs, setPopularFaqs] = useState([]);
+
+  // Ask Yaksha prompt (shown when search yields no results)
+  const [showYakshaPrompt, setShowYakshaPrompt] = useState(false);
+
+  // Community Contributions & Suggest Answer
+  const [contributions, setContributions] = useState([]);
+  const [suggestFormFaqId, setSuggestFormFaqId] = useState(null);
+  const [suggestFormName, setSuggestFormName] = useState('');
+  const [suggestFormText, setSuggestFormText] = useState('');
+  const [suggestFormStatus, setSuggestFormStatus] = useState(null);
+
   // 1. Fetch Onboarding and FAQs
   useEffect(() => {
     const isDismissed = localStorage.getItem('onboarding_dismissed');
@@ -43,6 +59,8 @@ export function FAQPortal() {
       fetchOnboarding();
     }
     fetchFAQs();
+    fetchPopular();
+    fetchContributions();
   }, []);
 
   const fetchOnboarding = async () => {
@@ -70,6 +88,26 @@ export function FAQPortal() {
     }
   };
 
+  const fetchPopular = async () => {
+    try {
+      const res = await getAdminPopular();
+      if (res.success && res.data.length > 0) {
+        setPopularFaqs(res.data);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const fetchContributions = async () => {
+    try {
+      const res = await getCommunityContributions();
+      setContributions(res || []);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   const handleDismissOnboarding = () => {
     localStorage.setItem('onboarding_dismissed', 'true');
     setShowOnboarding(false);
@@ -80,11 +118,12 @@ export function FAQPortal() {
     debounce(async (queryText) => {
       if (!queryText.trim()) {
         setSuggestions([]);
+        setShowYakshaPrompt(false);
         return;
       }
       try {
         const res = await askAI(queryText);
-        if (res.success && res.confidence > 0.4) {
+        if (res.success && res.confidence > 0.1) {
           // If we got a direct hit or semantic match
           setSuggestions([
             {
@@ -103,6 +142,11 @@ export function FAQPortal() {
           ).slice(0, 5).map(faq => ({ ...faq, confidence_score: 0.95 }));
           
           setSuggestions(localFiltered);
+          if (localFiltered.length === 0) {
+            setShowYakshaPrompt(true);
+          } else {
+            setShowYakshaPrompt(false);
+          }
         }
       } catch (err) {
         // Fallback to local filtering on error
@@ -110,6 +154,11 @@ export function FAQPortal() {
           faq.question.toLowerCase().includes(queryText.toLowerCase())
         ).slice(0, 5).map(faq => ({ ...faq, confidence_score: 0.9 }));
         setSuggestions(localFiltered);
+        if (localFiltered.length === 0) {
+          setShowYakshaPrompt(true);
+        } else {
+          setShowYakshaPrompt(false);
+        }
       }
     }, 300),
     [faqs]
@@ -177,6 +226,31 @@ export function FAQPortal() {
     }
   };
 
+  const handleSuggestSubmit = async (faqId) => {
+    setSuggestFormStatus(null);
+    try {
+      const res = await suggestCommunityAnswer({
+        faq_id: faqId,
+        contributor_name: suggestFormName,
+        answer_text: suggestFormText
+      });
+      if (res.success) {
+        if (res.decision === 'approved') {
+          setSuggestFormStatus({ status: 'success', msg: `✅ Your answer was excellent and has been immediately approved! (Hash: #${res.hash_id})` });
+          fetchFAQs();
+          fetchContributions();
+        } else if (res.decision === 'admin_review') {
+          setSuggestFormStatus({ status: 'success', msg: `📋 Your answer has been sent to the admins for review. Track it with hash: #${res.hash_id}` });
+        } else {
+          setSuggestFormStatus({ status: 'error', msg: 'Your answer was marked as spam or irrelevant by our AI gatekeeper.' });
+        }
+        setSuggestFormText('');
+      }
+    } catch (err) {
+      setSuggestFormStatus({ status: 'error', msg: 'Failed to submit suggestion.' });
+    }
+  };
+
   // Unique categories extraction
   const categories = ['All', ...new Set(faqs.map(faq => faq.category).filter(Boolean))];
 
@@ -235,10 +309,10 @@ export function FAQPortal() {
       {/* SECTION B: HERO SEARCH BAR */}
       <div className="space-y-4 max-w-2xl mx-auto text-center relative z-40">
         <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight text-[#111827]">
-          How can we help you today?
+          VINS Knowledge Vault
         </h1>
         <p className="text-gray-500 text-sm md:text-base">
-          Search the Samagama Knowledge Vault or talk to Yaksha AI instantly.
+          By the community, for the community — search VINS internships, NOC, Zoom, ViBe, Rosetta...
         </p>
         
         <div className="relative mt-6">
@@ -252,7 +326,7 @@ export function FAQPortal() {
               setSearchQuery(e.target.value);
               setShowSuggestions(true);
             }}
-            placeholder="Search questions, settings, APIs..."
+            placeholder="Search questions about VINS, NOC, Zoom, ViBe..."
             className="w-full pl-12 pr-4 py-3.5 bg-white border border-gray-200 rounded-lg shadow-sm focus:outline-none focus:ring-1 focus:ring-[#111827] focus:border-[#111827] text-sm text-[#111827] transition"
             disabled={isLoading}
           />
@@ -293,6 +367,28 @@ export function FAQPortal() {
               </motion.div>
             )}
           </AnimatePresence>
+
+          {/* No results — prompt to ask Yaksha */}
+          <AnimatePresence>
+            {showYakshaPrompt && searchQuery.trim() && suggestions.length === 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: 4 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 4 }}
+                className="mt-3 flex items-center justify-between bg-gray-50 border border-gray-200 rounded-lg px-4 py-3"
+              >
+                <p className="text-xs text-gray-500">
+                  No results for <span className="font-medium text-[#111827]">"{searchQuery}"</span> — try asking Yaksha AI instead.
+                </p>
+                <button
+                  onClick={() => navigate('/yaksha', { state: { query: searchQuery } })}
+                  className="ml-4 text-xs font-semibold text-[#111827] hover:text-black border border-[#111827] hover:bg-[#111827] hover:text-white px-3 py-1.5 rounded transition shrink-0"
+                >
+                  Ask Yaksha →
+                </button>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
 
         {/* Selected suggestion preview panel */}
@@ -322,19 +418,142 @@ export function FAQPortal() {
         </AnimatePresence>
       </div>
 
-      {/* SECTION C: FAQ BENTO GRID */}
+      {/* SECTION C: FREQUENTLY ASKED — PRIORITY TIERS */}
+      {popularFaqs.length > 0 && (
+        <div className="space-y-8">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-[#111827]">Frequently Asked</h2>
+            <span className="text-xs text-gray-400 border-b border-gray-200 pb-0.5">Ranked by search volume</span>
+          </div>
+
+          {/* TIER 1 — Most searched */}
+          {popularFaqs.slice(0, 1).length > 0 && (
+            <div className="border border-gray-200 rounded-lg overflow-hidden">
+              <div className="bg-gray-50 border-b border-gray-200 px-4 py-2.5 flex items-center justify-between">
+                <span className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Most Searched</span>
+                <span className="text-[10px] text-gray-400">{popularFaqs.slice(0, 1).length} question</span>
+              </div>
+              {popularFaqs.slice(0, 1).map((faq, i) => (
+                <div
+                  key={faq.id}
+                  onClick={() => {
+                    setSelectedSuggestion(faq);
+                    setShowSuggestions(false);
+                    setSearchQuery('');
+                  }}
+                  className="px-4 py-3.5 hover:bg-gray-50 cursor-pointer transition border-b border-gray-100 last:border-0 flex items-start gap-3"
+                >
+                  <span className="text-gray-300 text-xs font-mono mt-0.5 w-4 shrink-0">{String(i + 1).padStart(2, '0')}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-[#111827] font-medium leading-snug">{faq.question}</p>
+                    <p className="text-[11px] text-gray-400 mt-1">{faq.category} &middot; {Number(faq.search_count)} searches</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* TIER 2 — Frequently asked */}
+          {popularFaqs.slice(1, 4).length > 0 && (
+            <div className="border border-gray-200 rounded-lg overflow-hidden">
+              <div className="bg-gray-50 border-b border-gray-200 px-4 py-2.5 flex items-center justify-between">
+                <span className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Frequently Asked</span>
+                <span className="text-[10px] text-gray-400">{popularFaqs.slice(1, 4).length} questions</span>
+              </div>
+              {popularFaqs.slice(1, 4).map((faq, i) => (
+                <div
+                  key={faq.id}
+                  onClick={() => {
+                    setSelectedSuggestion(faq);
+                    setShowSuggestions(false);
+                    setSearchQuery('');
+                  }}
+                  className="px-4 py-3 hover:bg-gray-50 cursor-pointer transition border-b border-gray-100 last:border-0 flex items-start gap-3"
+                >
+                  <span className="text-gray-300 text-xs font-mono mt-0.5 w-4 shrink-0">{String(i + 2).padStart(2, '0')}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-[#111827] leading-snug">{faq.question}</p>
+                    <p className="text-[11px] text-gray-400 mt-1">{faq.category} &middot; {Number(faq.search_count)} searches</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* TIER 3 — Others */}
+          {popularFaqs.slice(4).length > 0 && (
+            <div className="border border-gray-100 rounded-lg overflow-hidden">
+              <div className="bg-gray-50 border-b border-gray-100 px-4 py-2.5 flex items-center justify-between">
+                <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Other Popular</span>
+                <span className="text-[10px] text-gray-300">{popularFaqs.slice(4).length} questions</span>
+              </div>
+              {popularFaqs.slice(4).map((faq, i) => (
+                <div
+                  key={faq.id}
+                  onClick={() => {
+                    setSelectedSuggestion(faq);
+                    setShowSuggestions(false);
+                    setSearchQuery('');
+                  }}
+                  className="px-4 py-2.5 hover:bg-gray-50 cursor-pointer transition border-b border-gray-100 last:border-0 flex items-start gap-3"
+                >
+                  <span className="text-gray-200 text-xs font-mono mt-0.5 w-4 shrink-0">{String(i + 5).padStart(2, '0')}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-gray-600 leading-snug">{faq.question}</p>
+                    <p className="text-[11px] text-gray-300 mt-0.5">{faq.category}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* SECTION: COMMUNITY CONTRIBUTIONS */}
+      {contributions.length > 0 && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-[#111827]">New FAQs from Users</h2>
+            <span className="text-xs text-gray-400 border-b border-gray-200 pb-0.5">Community Contributions</span>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {contributions.slice(0, 4).map(contrib => (
+              <div key={contrib.id} className="bg-white border border-green-200 rounded-lg p-4 flex flex-col justify-between hover:shadow-sm transition">
+                <div>
+                  <div className="flex items-center space-x-2">
+                    <span className="bg-green-100 text-green-800 text-[9px] font-bold uppercase tracking-wide px-2 py-0.5 rounded">
+                      Approved Answer
+                    </span>
+                    {contrib.hash_id && (
+                      <span className="bg-gray-100 text-gray-500 text-[9px] font-mono px-2 py-0.5 rounded">#{contrib.hash_id}</span>
+                    )}
+                  </div>
+                  <h4 className="font-medium text-[#111827] text-sm mt-3 leading-snug line-clamp-2">{contrib.question}</h4>
+                  <p className="text-xs text-gray-600 mt-2 line-clamp-2 leading-relaxed">{contrib.answer_text}</p>
+                </div>
+                <div className="mt-4 pt-3 border-t border-gray-100 flex items-center justify-between text-[10px] text-gray-400">
+                  <span>Suggested by <strong className="text-gray-700">{contrib.contributor_name}</strong></span>
+                  <span>{new Date(contrib.created_at).toLocaleDateString()}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* SECTION D: FAQ BENTO GRID */}
       <div className="space-y-6">
         <div className="flex justify-between items-center border-b border-gray-200 pb-4">
-          <h2 className="text-xl font-bold tracking-tight text-[#111827]">Knowledge Categories</h2>
+          <h2 className="text-xl font-bold tracking-tight text-[#111827]">Browse by Category</h2>
           <span className="text-xs text-gray-500 font-medium bg-gray-100 px-2 py-1 rounded">
-            Total FAQs: {faqs.length}
+            {faqs.length} answers and growing
           </span>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-          {/* Right Column (Category filters, displays first/prominent on mobile or sidebar on desktop) */}
-          <div className="lg:col-span-1 lg:order-last space-y-4">
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400">Filters</h3>
+          {/* LEFT SIDEBAR: Category filters */}
+          <div className="lg:col-span-1 space-y-4">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400">Browse by Category</h3>
             <div className="flex flex-wrap lg:flex-col gap-2">
               {categories.map((cat) => (
                 <button
@@ -352,7 +571,7 @@ export function FAQPortal() {
             </div>
           </div>
 
-          {/* Left Column (FAQ Cards Grid) */}
+          {/* RIGHT: FAQ Cards Grid */}
           <div className="lg:col-span-3 grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
             <AnimatePresence>
               {filteredFaqs.map((faq) => {
@@ -485,6 +704,63 @@ export function FAQPortal() {
                             </div>
                           )}
                         </div>
+                      </div>
+
+                      {/* Suggest Answer row */}
+                      <div className="pt-2 border-t border-gray-100 flex flex-col space-y-2">
+                        <button
+                          onClick={() => {
+                             if (suggestFormFaqId === faq.id) setSuggestFormFaqId(null);
+                             else { 
+                               setSuggestFormFaqId(faq.id); 
+                               setSuggestFormStatus(null); 
+                               setSuggestFormText(''); 
+                             }
+                          }}
+                          className="text-[11px] text-gray-500 hover:text-[#111827] font-semibold text-left underline w-fit"
+                        >
+                          Suggest better answer
+                        </button>
+                        
+                        <AnimatePresence>
+                          {suggestFormFaqId === faq.id && (
+                            <motion.div
+                              initial={{ opacity: 0, height: 0 }}
+                              animate={{ opacity: 1, height: 'auto' }}
+                              exit={{ opacity: 0, height: 0 }}
+                              className="bg-gray-50 p-3 rounded-md space-y-3 border border-gray-200 mt-2"
+                            >
+                               <input
+                                 type="text"
+                                 placeholder="Your Name (Optional)"
+                                 value={suggestFormName}
+                                 onChange={(e) => setSuggestFormName(e.target.value)}
+                                 className="w-full px-3 py-2 text-xs border border-gray-200 rounded focus:outline-none focus:border-[#111827]"
+                               />
+                               <textarea
+                                 placeholder="What's a better or more complete answer?"
+                                 value={suggestFormText}
+                                 onChange={(e) => setSuggestFormText(e.target.value)}
+                                 rows={3}
+                                 className="w-full px-3 py-2 text-xs border border-gray-200 rounded focus:outline-none focus:border-[#111827]"
+                               />
+                               <div className="flex items-center justify-between">
+                                 <button
+                                   onClick={() => handleSuggestSubmit(faq.id)}
+                                   disabled={!suggestFormText.trim()}
+                                   className="bg-[#111827] text-white text-[11px] font-semibold px-3 py-1.5 rounded hover:bg-black disabled:opacity-50 transition"
+                                 >
+                                   Submit Suggestion
+                                 </button>
+                               </div>
+                               {suggestFormStatus && (
+                                 <p className={`text-[10px] mt-2 font-medium ${suggestFormStatus.status === 'success' ? 'text-green-600' : 'text-red-600'}`}>
+                                   {suggestFormStatus.msg}
+                                 </p>
+                               )}
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
                       </div>
                     </div>
                   </motion.div>

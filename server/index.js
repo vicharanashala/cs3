@@ -1,14 +1,17 @@
+
 import express from 'express';
 import cors from 'cors';
-import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 import faqRoutes from './routes/faq.routes.js';
 import aiRoutes from './routes/ai.routes.js';
 import queryRoutes from './routes/query.routes.js';
 import adminRoutes from './routes/admin.routes.js';
+import communityRoutes from './routes/community.routes.js';
 import { errorHandler } from './middleware/errorHandler.js';
-
-// Load environment variables
-dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -41,6 +44,19 @@ app.use('/api/faq', faqRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/query', queryRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/community', communityRoutes);
+
+// Serve static frontend files from 'public' directory
+app.use(express.static(path.join(__dirname, 'public')));
+
+// Fallback to React Router for all non-API routes
+app.get('*', (req, res, next) => {
+  if (!req.path.startsWith('/api')) {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+  } else {
+    next();
+  }
+});
 
 // Global Error Handler (must be mounted last)
 app.use(errorHandler);
