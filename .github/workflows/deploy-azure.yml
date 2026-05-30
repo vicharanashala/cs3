@@ -8,6 +8,9 @@ on:
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://samagamafaqs.azurewebsites.net/
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
