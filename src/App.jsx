@@ -1,7 +1,7 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Link, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { BookOpen, Bot, MessageSquare, LayoutDashboard } from 'lucide-react';
+import { BookOpen, Bot, MessageSquare, LayoutDashboard, Moon, Sun } from 'lucide-react';
 import { AppProvider, useApp } from './store/AppContext';
 import FAQPortal from './pages/FAQPortal';
 import YakshaAI from './pages/YakshaAI';
@@ -26,7 +26,7 @@ function PageWrapper({ children }) {
 // Navigation Bar
 function Navbar() {
   const location = useLocation();
-  const { isLoading } = useApp();
+  const { isLoading, theme, toggleTheme } = useApp();
 
   const menuItems = [
     { path: '/', label: 'FAQ', icon: BookOpen },
@@ -35,12 +35,12 @@ function Navbar() {
   ];
 
   return (
-    <nav className="border-b border-gray-200 bg-[#FDFDFD] sticky top-0 z-50 select-none shadow-sm">
+    <nav className="border-b border-gray-200 dark:border-gray-800 bg-[#FDFDFD] dark:bg-gray-900 sticky top-0 z-50 select-none shadow-sm transition-colors duration-200">
       <div className="max-w-6xl mx-auto px-6">
         <div className="flex justify-between items-center h-16">
           <div className="flex items-center space-x-2">
-            <span className="font-bold text-[#111827] tracking-tight font-sans text-xl">SAMAGAMA</span>
-            <span className="bg-[#111827] text-white text-[10px] px-1.5 py-0.5 rounded font-medium">FAQ</span>
+            <span className="font-bold text-[#111827] dark:text-gray-50 tracking-tight font-sans text-xl">SAMAGAMA</span>
+            <span className="bg-[#111827] dark:bg-gray-100 text-white dark:text-gray-900 text-[10px] px-1.5 py-0.5 rounded font-medium">FAQ</span>
           </div>
           <div className="flex space-x-6">
             {menuItems.map((item) => {
@@ -52,8 +52,8 @@ function Navbar() {
                   to={item.path}
                   className={`flex items-center space-x-1.5 h-16 px-1 border-b-2 text-sm transition-all duration-200 ${
                     isActive
-                      ? 'border-[#111827] text-[#111827] font-semibold'
-                      : 'border-transparent text-gray-500 hover:text-[#111827] hover:border-gray-300'
+                      ? 'border-[#111827] dark:border-gray-100 text-[#111827] dark:text-gray-100 font-semibold'
+                      : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-[#111827] dark:hover:text-gray-100 hover:border-gray-300 dark:hover:border-gray-600'
                   } ${isLoading ? 'pointer-events-none opacity-50' : ''}`}
                 >
                   <Icon className="w-4 h-4" />
@@ -61,6 +61,13 @@ function Navbar() {
                 </Link>
               );
             })}
+            <button
+              onClick={toggleTheme}
+              className="flex items-center justify-center w-8 h-8 my-auto rounded-full bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition"
+              aria-label="Toggle Dark Mode"
+            >
+              {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+            </button>
           </div>
         </div>
       </div>
@@ -87,7 +94,7 @@ export function App() {
   return (
     <AppProvider>
       <BrowserRouter>
-        <div className="min-h-screen bg-[#FDFDFD] font-sans text-[#111827] flex flex-col">
+        <div className="min-h-screen bg-[#FDFDFD] dark:bg-gray-900 font-sans text-[#111827] dark:text-gray-100 flex flex-col transition-colors duration-200">
           <Navbar />
           <main className="flex-1 w-full max-w-6xl mx-auto px-6 py-8">
             <AnimatedRoutes />

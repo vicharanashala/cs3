@@ -123,9 +123,9 @@ export function EscalationForm() {
 
   return (
     <div className="max-w-xl mx-auto space-y-6">
-      <div className="border-b border-gray-200 pb-4">
-        <h1 className="text-2xl font-extrabold tracking-tight text-[#111827]">Submit a Support Query</h1>
-        <p className="text-xs text-gray-500 mt-1">Our technical coordinators will vector and resolve this within hours.</p>
+      <div className="border-b border-gray-200 dark:border-gray-700 pb-4">
+        <h1 className="text-2xl font-extrabold tracking-tight text-[#111827] dark:text-gray-100">Submit a Support Query</h1>
+        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Our technical coordinators will vector and resolve this within hours.</p>
       </div>
 
       {/* Success banner */}
@@ -165,10 +165,10 @@ export function EscalationForm() {
       </AnimatePresence>
 
       {/* Main Form */}
-      <form onSubmit={handleSubmit} className="space-y-5 bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
+      <form onSubmit={handleSubmit} className="space-y-5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6 shadow-sm">
         {/* Email Field */}
         <div className="space-y-1">
-          <label htmlFor="email" className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+          <label htmlFor="email" className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
             Email Address
           </label>
           <input
@@ -178,14 +178,14 @@ export function EscalationForm() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="devops@samagama.org"
-            className="w-full px-3.5 py-2.5 bg-white border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-[#111827] focus:border-[#111827] text-sm text-[#111827]"
+            className="w-full px-3.5 py-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md focus:outline-none focus:ring-1 focus:ring-[#111827] dark:focus:ring-gray-100 focus:border-[#111827] dark:focus:border-gray-100 text-sm text-[#111827] dark:text-gray-100"
             disabled={isLoading}
           />
         </div>
 
         {/* Subject Field */}
         <div className="space-y-1 relative">
-          <label htmlFor="subject" className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+          <label htmlFor="subject" className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
             Query Subject
           </label>
           <input
@@ -195,7 +195,7 @@ export function EscalationForm() {
             value={subject}
             onChange={(e) => setSubject(e.target.value)}
             placeholder="E.g., Connection pool leak on Neon DB"
-            className="w-full px-3.5 py-2.5 bg-white border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-[#111827] focus:border-[#111827] text-sm text-[#111827]"
+            className="w-full px-3.5 py-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md focus:outline-none focus:ring-1 focus:ring-[#111827] dark:focus:ring-gray-100 focus:border-[#111827] dark:focus:border-gray-100 text-sm text-[#111827] dark:text-gray-100"
             disabled={isLoading}
           />
 
@@ -218,7 +218,7 @@ export function EscalationForm() {
                 <button
                   type="button"
                   onClick={handleViewAnswer}
-                  className="bg-[#111827] hover:bg-black text-white px-3 py-1.5 rounded text-[11px] font-semibold w-fit transition"
+                  className="bg-[#111827] dark:bg-gray-100 hover:bg-black text-white dark:text-gray-900 px-3 py-1.5 rounded text-[11px] font-semibold w-fit transition"
                 >
                   View Answer →
                 </button>
@@ -229,7 +229,7 @@ export function EscalationForm() {
 
         {/* Description Field */}
         <div className="space-y-1">
-          <label htmlFor="description" className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+          <label htmlFor="description" className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
             Detailed Description
           </label>
           <textarea
@@ -239,7 +239,7 @@ export function EscalationForm() {
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             placeholder="Please enter expected behavior versus actual error logs (minimum 20 characters)..."
-            className="w-full px-3.5 py-2.5 bg-white border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-[#111827] focus:border-[#111827] text-sm text-[#111827] resize-y min-h-[100px]"
+            className="w-full px-3.5 py-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md focus:outline-none focus:ring-1 focus:ring-[#111827] dark:focus:ring-gray-100 focus:border-[#111827] dark:focus:border-gray-100 text-sm text-[#111827] dark:text-gray-100 resize-y min-h-[100px]"
             disabled={isLoading}
           />
         </div>
@@ -251,7 +251,7 @@ export function EscalationForm() {
         <button
           type="submit"
           disabled={isLoading || score < 2}
-          className="w-full py-3 bg-[#111827] hover:bg-black text-white font-bold rounded-lg text-sm transition disabled:opacity-40"
+          className="w-full py-3 bg-[#111827] dark:bg-gray-100 hover:bg-black text-white dark:text-gray-900 font-bold rounded-lg text-sm transition disabled:opacity-40"
         >
           {isLoading ? 'Submitting Query...' : 'Submit Support Ticket'}
         </button>

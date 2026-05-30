@@ -186,13 +186,13 @@ export function AdminDashboard() {
         <motion.div 
           initial={{ opacity: 0, scale: 0.96 }}
           animate={{ opacity: 1, scale: 1 }}
-          className="bg-white border border-gray-200 rounded-lg p-8 shadow-md w-full max-w-sm text-center space-y-6"
+          className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-8 shadow-md w-full max-w-sm text-center space-y-6"
         >
-          <div className="mx-auto w-12 h-12 bg-gray-50 border border-gray-200 flex items-center justify-center rounded-full text-[#111827]">
+          <div className="mx-auto w-12 h-12 bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 flex items-center justify-center rounded-full text-[#111827] dark:text-gray-100">
             <Lock className="w-5 h-5" />
           </div>
           <div>
-            <h2 className="text-xl font-bold text-[#111827]">Commander Access</h2>
+            <h2 className="text-xl font-bold text-[#111827] dark:text-gray-100">Commander Access</h2>
             <p className="text-xs text-gray-400 mt-1">Please enter your system access key to unlock dashboard parameters.</p>
           </div>
 
@@ -202,14 +202,14 @@ export function AdminDashboard() {
               value={adminKey}
               onChange={(e) => setAdminKey(e.target.value)}
               placeholder="Enter admin key"
-              className="w-full px-3.5 py-2.5 bg-white border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-[#111827] focus:border-[#111827] text-sm text-center"
+              className="w-full px-3.5 py-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md focus:outline-none focus:ring-1 focus:ring-[#111827] dark:focus:ring-gray-100 focus:border-[#111827] dark:focus:border-gray-100 text-sm text-center"
               required
             />
             {authError && <p className="text-xs text-red-600 font-semibold">{authError}</p>}
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full py-2.5 bg-[#111827] hover:bg-black text-white rounded-md text-sm font-bold transition"
+              className="w-full py-2.5 bg-[#111827] dark:bg-gray-100 hover:bg-black text-white dark:text-gray-900 rounded-md text-sm font-bold transition"
             >
               Verify Credentials
             </button>
@@ -222,15 +222,15 @@ export function AdminDashboard() {
   return (
     <div className="space-y-10">
       {/* Dashboard Sticky Header */}
-      <div className="flex justify-between items-center border-b border-gray-200 pb-4">
+      <div className="flex justify-between items-center border-b border-gray-200 dark:border-gray-700 pb-4">
         <div>
-          <h1 className="text-2xl font-extrabold tracking-tight text-[#111827]">Admin Metrics & Analytics</h1>
-          <p className="text-xs text-gray-500 mt-1">Semantic vector accuracy logs, knowledge gap metrics, and rage detectors.</p>
+          <h1 className="text-2xl font-extrabold tracking-tight text-[#111827] dark:text-gray-100">Admin Metrics & Analytics</h1>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Semantic vector accuracy logs, knowledge gap metrics, and rage detectors.</p>
         </div>
         <div className="flex space-x-3 items-center">
           <button 
             onClick={() => fetchDashboardData()}
-            className="p-2 border border-gray-200 rounded-md hover:bg-gray-50 transition text-gray-500"
+            className="p-2 border border-gray-200 dark:border-gray-700 rounded-md hover:bg-gray-50 dark:bg-gray-900/50 transition text-gray-500 dark:text-gray-400"
             title="Reload Data"
             disabled={isLoading}
           >
@@ -276,7 +276,7 @@ export function AdminDashboard() {
             <p className="text-xs text-red-700">
               The following users have queried the vectors repeatedly without receiving successful matches (confidence &lt; 70%):
             </p>
-            <div className="space-y-2.5 mt-2 bg-white/40 border border-red-100 rounded-md p-4">
+            <div className="space-y-2.5 mt-2 bg-white dark:bg-gray-800/40 border border-red-100 rounded-md p-4">
               {rageSessions.map((session, index) => (
                 <div key={index} className="flex justify-between items-center text-xs border-b border-red-100 last:border-0 pb-2 last:pb-0">
                   <span className="font-semibold text-red-950">"{session.query_text}"</span>
@@ -291,19 +291,19 @@ export function AdminDashboard() {
       </AnimatePresence>
 
       {/* SECTION 1: CONFIDENCE HEATMAP */}
-      <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm space-y-4">
+      <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6 shadow-sm space-y-4">
         <div className="flex items-center space-x-2 border-b border-gray-100 pb-3">
-          <TrendingUp className="w-4 h-4 text-[#111827]" />
-          <h3 className="text-sm font-bold uppercase tracking-tight text-gray-500">Confidence Heatmap</h3>
+          <TrendingUp className="w-4 h-4 text-[#111827] dark:text-gray-100" />
+          <h3 className="text-sm font-bold uppercase tracking-tight text-gray-500 dark:text-gray-400">Confidence Heatmap</h3>
         </div>
 
         {heatmapData.length === 0 ? (
           <p className="text-xs text-gray-400 py-4 text-center">No search query analytics found.</p>
         ) : (
-          <div className="overflow-x-auto border border-gray-200 rounded-md">
+          <div className="overflow-x-auto border border-gray-200 dark:border-gray-700 rounded-md">
             <table className="w-full text-left border-collapse text-xs md:text-sm">
               <thead>
-                <tr className="bg-gray-50 text-gray-500 border-b border-gray-200 font-semibold uppercase tracking-wider text-[10px]">
+                <tr className="bg-gray-50 dark:bg-gray-900/50 text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700 font-semibold uppercase tracking-wider text-[10px]">
                   <th className="py-3 px-4">Category</th>
                   <th className="py-3 px-4">Avg Confidence Match</th>
                   <th className="py-3 px-4">Volume</th>
@@ -317,14 +317,14 @@ export function AdminDashboard() {
                   else if (conf >= 0.70) cellStyle = { backgroundColor: '#FFFBEB', color: '#92400e' }; // amber
 
                   return (
-                    <tr key={index} className="border-b border-gray-100 hover:bg-gray-50 transition">
-                      <td className="py-3 px-4 font-semibold text-[#111827]">{row.category || 'General'}</td>
+                    <tr key={index} className="border-b border-gray-100 hover:bg-gray-50 dark:bg-gray-900/50 transition">
+                      <td className="py-3 px-4 font-semibold text-[#111827] dark:text-gray-100">{row.category || 'General'}</td>
                       <td className="py-3 px-4">
                         <span className="px-2.5 py-1 rounded-full font-bold" style={cellStyle}>
                           {Math.round(conf * 100)}%
                         </span>
                       </td>
-                      <td className="py-3 px-4 text-gray-500 font-medium">{row.volume} matches</td>
+                      <td className="py-3 px-4 text-gray-500 dark:text-gray-400 font-medium">{row.volume} matches</td>
                     </tr>
                   );
                 })}
@@ -335,19 +335,19 @@ export function AdminDashboard() {
       </div>
 
       {/* SECTION 2: KNOWLEDGE GAPS */}
-      <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm space-y-4">
+      <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6 shadow-sm space-y-4">
         <div className="flex items-center space-x-2 border-b border-gray-100 pb-3">
-          <AlertTriangle className="w-4 h-4 text-[#111827]" />
-          <h3 className="text-sm font-bold uppercase tracking-tight text-gray-500">Knowledge Gaps (Failed Searches)</h3>
+          <AlertTriangle className="w-4 h-4 text-[#111827] dark:text-gray-100" />
+          <h3 className="text-sm font-bold uppercase tracking-tight text-gray-500 dark:text-gray-400">Knowledge Gaps (Failed Searches)</h3>
         </div>
 
         {gapsData.length === 0 ? (
           <p className="text-xs text-gray-400 py-4 text-center">No knowledge gaps detected. Vector indexing is healthy.</p>
         ) : (
-          <div className="overflow-x-auto border border-gray-200 rounded-md">
+          <div className="overflow-x-auto border border-gray-200 dark:border-gray-700 rounded-md">
             <table className="w-full text-left border-collapse text-xs md:text-sm">
               <thead>
-                <tr className="bg-gray-50 text-gray-500 border-b border-gray-200 font-semibold uppercase tracking-wider text-[10px]">
+                <tr className="bg-gray-50 dark:bg-gray-900/50 text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700 font-semibold uppercase tracking-wider text-[10px]">
                   <th className="py-3 px-4">Failed Search Query</th>
                   <th className="py-3 px-4">Frequency</th>
                   <th className="py-3 px-4">Action</th>
@@ -355,9 +355,9 @@ export function AdminDashboard() {
               </thead>
               <tbody>
                 {gapsData.map((row, index) => (
-                  <tr key={index} className="border-b border-gray-100 hover:bg-gray-50 transition">
-                    <td className="py-3 px-4 font-medium text-[#111827]">"{row.query_text}"</td>
-                    <td className="py-3 px-4 text-gray-500">{row.frequency} sessions</td>
+                  <tr key={index} className="border-b border-gray-100 hover:bg-gray-50 dark:bg-gray-900/50 transition">
+                    <td className="py-3 px-4 font-medium text-[#111827] dark:text-gray-100">"{row.query_text}"</td>
+                    <td className="py-3 px-4 text-gray-500 dark:text-gray-400">{row.frequency} sessions</td>
                     <td className="py-3 px-4">
                       <button
                         onClick={() => setDraftFaq({
@@ -367,7 +367,7 @@ export function AdminDashboard() {
                           risk_level: 'low',
                           is_onboarding_faq: false
                         })}
-                        className="flex items-center space-x-1.5 text-xs text-[#111827] hover:underline font-semibold"
+                        className="flex items-center space-x-1.5 text-xs text-[#111827] dark:text-gray-100 hover:underline font-semibold"
                       >
                         <PenLine className="w-3.5 h-3.5" />
                         <span>Draft FAQ</span>
@@ -394,13 +394,13 @@ export function AdminDashboard() {
               initial={{ scale: 0.95, y: 12 }}
               animate={{ scale: 1, y: 0 }}
               exit={{ scale: 0.95, y: 12 }}
-              className="bg-white border border-gray-200 rounded-lg shadow-xl w-full max-w-lg overflow-hidden relative"
+              className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl w-full max-w-lg overflow-hidden relative"
             >
-              <div className="p-6 border-b border-gray-200 flex justify-between items-center">
-                <h3 className="font-bold text-lg text-[#111827]">Draft New FAQ</h3>
+              <div className="p-6 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
+                <h3 className="font-bold text-lg text-[#111827] dark:text-gray-100">Draft New FAQ</h3>
                 <button
                   onClick={() => setDraftFaq(null)}
-                  className="p-1 text-gray-400 hover:text-[#111827] transition"
+                  className="p-1 text-gray-400 hover:text-[#111827] dark:hover:text-gray-100 transition"
                 >
                   <X className="w-6 h-6" />
                 </button>
@@ -409,14 +409,14 @@ export function AdminDashboard() {
               <form onSubmit={handleDraftSubmit} className="p-6 space-y-4">
                 {/* Question */}
                 <div className="space-y-1">
-                  <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                  <label className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                     Question Text
                   </label>
                   <input
                     type="text"
                     value={draftFaq.question}
                     onChange={(e) => setDraftFaq(prev => ({ ...prev, question: e.target.value }))}
-                    className="w-full px-3 py-2 bg-white border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-[#111827] text-sm"
+                    className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md focus:outline-none focus:ring-1 focus:ring-[#111827] dark:focus:ring-gray-100 text-sm"
                     required
                     disabled={isLoading}
                   />
@@ -424,14 +424,14 @@ export function AdminDashboard() {
 
                 {/* Answer */}
                 <div className="space-y-1">
-                  <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                  <label className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                     Answer Text
                   </label>
                   <textarea
                     rows="4"
                     value={draftFaq.answer}
                     onChange={(e) => setDraftFaq(prev => ({ ...prev, answer: e.target.value }))}
-                    className="w-full px-3 py-2 bg-white border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-[#111827] text-sm"
+                    className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md focus:outline-none focus:ring-1 focus:ring-[#111827] dark:focus:ring-gray-100 text-sm"
                     required
                     disabled={isLoading}
                   />
@@ -440,13 +440,13 @@ export function AdminDashboard() {
                 {/* Category & Risk grid */}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1">
-                    <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                    <label className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                       Category
                     </label>
                     <select
                       value={draftFaq.category}
                       onChange={(e) => setDraftFaq(prev => ({ ...prev, category: e.target.value }))}
-                      className="w-full px-3 py-2 bg-white border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-[#111827] text-sm"
+                      className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md focus:outline-none focus:ring-1 focus:ring-[#111827] dark:focus:ring-gray-100 text-sm"
                       disabled={isLoading}
                     >
                       {categoryOptions.map((opt) => (
@@ -456,13 +456,13 @@ export function AdminDashboard() {
                   </div>
 
                   <div className="space-y-1">
-                    <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                    <label className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                       Risk Level
                     </label>
                     <select
                       value={draftFaq.risk_level}
                       onChange={(e) => setDraftFaq(prev => ({ ...prev, risk_level: e.target.value }))}
-                      className="w-full px-3 py-2 bg-white border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-[#111827] text-sm"
+                      className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md focus:outline-none focus:ring-1 focus:ring-[#111827] dark:focus:ring-gray-100 text-sm"
                       disabled={isLoading}
                     >
                       <option value="low">Low Risk</option>
@@ -491,7 +491,7 @@ export function AdminDashboard() {
                 <button
                   type="submit"
                   disabled={isLoading}
-                  className="w-full py-3 bg-[#111827] hover:bg-black text-white rounded-md text-sm font-bold transition disabled:opacity-40"
+                  className="w-full py-3 bg-[#111827] dark:bg-gray-100 hover:bg-black text-white dark:text-gray-900 rounded-md text-sm font-bold transition disabled:opacity-40"
                 >
                   {isLoading ? 'Generating Vector Embeddings...' : 'Publish Knowledge Record'}
                 </button>
@@ -502,11 +502,11 @@ export function AdminDashboard() {
       </AnimatePresence>
 
       {/* SECTION 4: COMMUNITY MODERATION QUEUE */}
-      <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm space-y-4">
+      <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6 shadow-sm space-y-4">
         <div className="flex items-center justify-between border-b border-gray-100 pb-3">
           <div className="flex items-center space-x-2">
-            <UserCheck className="w-4 h-4 text-[#111827]" />
-            <h3 className="text-sm font-bold uppercase tracking-tight text-gray-500">Community Moderation Queue</h3>
+            <UserCheck className="w-4 h-4 text-[#111827] dark:text-gray-100" />
+            <h3 className="text-sm font-bold uppercase tracking-tight text-gray-500 dark:text-gray-400">Community Moderation Queue</h3>
           </div>
           <div className="flex items-center space-x-2">
             <div className="relative">
@@ -517,19 +517,19 @@ export function AdminDashboard() {
                 value={hashSearch}
                 onChange={(e) => setHashSearch(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && fetchQueue(hashSearch)}
-                className="pl-8 pr-3 py-1.5 text-xs border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-[#111827] w-40"
+                className="pl-8 pr-3 py-1.5 text-xs border border-gray-200 dark:border-gray-700 rounded-md focus:outline-none focus:ring-1 focus:ring-[#111827] dark:focus:ring-gray-100 w-40"
               />
             </div>
             <button
               onClick={() => fetchQueue(hashSearch || undefined)}
-              className="p-1.5 border border-gray-200 rounded-md hover:bg-gray-50 transition text-gray-500"
+              className="p-1.5 border border-gray-200 dark:border-gray-700 rounded-md hover:bg-gray-50 dark:bg-gray-900/50 transition text-gray-500 dark:text-gray-400"
               title="Search Queue"
             >
               <Search className="w-3.5 h-3.5" />
             </button>
             <button
               onClick={() => { setHashSearch(''); fetchQueue(); }}
-              className="text-[10px] text-gray-500 hover:text-[#111827] underline font-semibold"
+              className="text-[10px] text-gray-500 dark:text-gray-400 hover:text-[#111827] dark:hover:text-gray-100 underline font-semibold"
             >
               Show All
             </button>
@@ -552,29 +552,29 @@ export function AdminDashboard() {
                   <div className="space-y-1">
                     <div className="flex items-center space-x-2">
                       <span className="bg-amber-100 text-amber-800 text-[9px] font-bold uppercase tracking-wide px-2 py-0.5 rounded">Pending Review</span>
-                      <span className="bg-gray-100 text-gray-600 text-[9px] font-mono px-2 py-0.5 rounded">#{item.hash_id}</span>
+                      <span className="bg-gray-100 dark:bg-gray-800 text-gray-600 text-[9px] font-mono px-2 py-0.5 rounded">#{item.hash_id}</span>
                       <span className="text-[10px] text-gray-400">conf: {Math.round((item.yaksha_confidence || 0) * 100)}%</span>
                     </div>
-                    <p className="text-xs font-semibold text-[#111827] mt-1">FAQ: {item.question}</p>
+                    <p className="text-xs font-semibold text-[#111827] dark:text-gray-100 mt-1">FAQ: {item.question}</p>
                   </div>
                   <span className="text-[10px] text-gray-400 shrink-0">{new Date(item.created_at).toLocaleDateString()}</span>
                 </div>
 
                 {/* Compare answers */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <div className="bg-white border border-gray-200 rounded p-3">
+                  <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded p-3">
                     <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wider">Current Answer</span>
                     <p className="text-xs text-gray-600 mt-1 line-clamp-4 leading-relaxed">{item.current_answer}</p>
                   </div>
-                  <div className="bg-white border border-green-200 rounded p-3">
+                  <div className="bg-white dark:bg-gray-800 border border-green-200 rounded p-3">
                     <span className="text-[9px] font-bold text-green-700 uppercase tracking-wider">Suggested Answer</span>
-                    <p className="text-xs text-[#111827] mt-1 line-clamp-4 leading-relaxed font-medium">{item.answer_text}</p>
+                    <p className="text-xs text-[#111827] dark:text-gray-100 mt-1 line-clamp-4 leading-relaxed font-medium">{item.answer_text}</p>
                   </div>
                 </div>
 
                 {/* Yaksha reasoning */}
                 {item.yaksha_reasoning && (
-                  <div className="bg-gray-50 border border-gray-100 rounded p-2.5">
+                  <div className="bg-gray-50 dark:bg-gray-900/50 border border-gray-100 rounded p-2.5">
                     <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wider">Yaksha's Reasoning</span>
                     <p className="text-[11px] text-gray-600 mt-1 italic">"{item.yaksha_reasoning}"</p>
                   </div>
@@ -582,17 +582,17 @@ export function AdminDashboard() {
 
                 {/* Footer: contributor + actions */}
                 <div className="flex items-center justify-between pt-2 border-t border-amber-100">
-                  <span className="text-[10px] text-gray-500">Submitted by <strong className="text-gray-700">{item.contributor_name || 'Anonymous'}</strong></span>
+                  <span className="text-[10px] text-gray-500 dark:text-gray-400">Submitted by <strong className="text-gray-700">{item.contributor_name || 'Anonymous'}</strong></span>
                   <div className="flex items-center space-x-2">
                     <button
                       onClick={() => handleQueueAction(item.id, 'approve')}
-                      className="bg-green-600 hover:bg-green-700 text-white text-[10px] font-bold px-3 py-1.5 rounded transition"
+                      className="bg-green-600 hover:bg-green-700 text-white dark:text-gray-900 text-[10px] font-bold px-3 py-1.5 rounded transition"
                     >
                       ✓ Approve & Write
                     </button>
                     <button
                       onClick={() => handleQueueAction(item.id, 'reject')}
-                      className="bg-white border border-red-300 text-red-600 hover:bg-red-50 text-[10px] font-bold px-3 py-1.5 rounded transition"
+                      className="bg-white dark:bg-gray-800 border border-red-300 text-red-600 hover:bg-red-50 text-[10px] font-bold px-3 py-1.5 rounded transition"
                     >
                       ✗ Reject
                     </button>
