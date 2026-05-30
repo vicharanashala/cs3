@@ -186,6 +186,57 @@ export async function getAdminPopular() {
   }
 }
 
+export async function suggestCommunityAnswer(data) {
+  try {
+    const response = await api.post('/community/suggest', data);
+    return response.data;
+  } catch (error) {
+    console.error('API Error [suggestCommunityAnswer]:', error);
+    throw error;
+  }
+}
+
+export async function getCommunityContributions() {
+  try {
+    const response = await api.get('/community/contributions');
+    return response.data;
+  } catch (error) {
+    console.error('API Error [getCommunityContributions]:', error);
+    throw error;
+  }
+}
+
+export async function getAdminQueue(hash) {
+  try {
+    const params = hash ? { hash } : {};
+    const response = await api.get('/admin/queue', { params });
+    return response.data;
+  } catch (error) {
+    console.error('API Error [getAdminQueue]:', error);
+    throw error;
+  }
+}
+
+export async function adminReviewQueueItem(id, action) {
+  try {
+    const response = await api.put(`/admin/queue/${id}`, { action });
+    return response.data;
+  } catch (error) {
+    console.error('API Error [adminReviewQueueItem]:', error);
+    throw error;
+  }
+}
+
+export async function adminDeleteCommunityHash(hash) {
+  try {
+    const response = await api.delete(`/admin/community/${hash}`);
+    return response.data;
+  } catch (error) {
+    console.error('API Error [adminDeleteCommunityHash]:', error);
+    throw error;
+  }
+}
+
 export default {
   getFAQs,
   getOnboardingFAQs,
@@ -201,4 +252,9 @@ export default {
   getAdminGaps,
   getAdminHeatmap,
   getAdminRageSessions,
+  suggestCommunityAnswer,
+  getCommunityContributions,
+  getAdminQueue,
+  adminReviewQueueItem,
+  adminDeleteCommunityHash,
 };

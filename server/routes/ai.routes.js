@@ -1,40 +1,26 @@
 import express from 'express';
 import { query as dbQuery } from '../db/neon.js';
-import { searchWithVectors } from '../services/embedding.service.js';
+import { searchWithFullText } from '../services/embedding.service.js';
 import { ValidationError } from '../middleware/errorHandler.js';
+import OpenAI from 'openai';
 
 const router = express.Router();
 
-// Lazy Groq client
-let _groq = null;
-async function getGroq() {
-  if (!_groq) {
-    const OpenAI = (await import('openai')).default;
-    _groq = new OpenAI({
-      apiKey: process.env.GROQ_API_KEY,
-      baseURL: 'https://api.groq.com/openai/v1',
+// Lazy LLM client — uses OPENAI_API_KEY + OPENAI_BASE_URL from .env
+let _llm = null;
+function getLLM() {
+  if (!_llm) {
+    _llm = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY,
+      baseURL: process.env.OPENAI_BASE_URL,
     });
   }
-  return _groq;
+  return _llm;
 }
 
-// GET /api/ai/models — probe Groq for available embedding + chat models
-router.get('/models', async (req, res, next) => {
-  try {
-    const groq = await getGroq();
-    const modelList = await groq.models.list();
-    const all = modelList.data || [];
-    const embeddings = all.filter(m => m.id.includes('embedding'));
-    const chats = all.filter(m =>
-      m.id.includes('llama') || m.id.includes('mixtral') || m.id.includes('qwen')
-    );
-    res.json({ embeddings, chats, all: all.map(m => m.id) });
-  } catch (err) {
-    next(err);
-  }
-});
+const LLM_MODEL = process.env.OPENAI_MODEL || 'llama-3.1-8b-instant';
 
-// POST /api/ai/ask — 3-tier confidence pipeline via pgvector + Groq
+// POST /api/ai/ask — 3-tier confidence pipeline via PG full-text + Groq LLM
 router.post('/ask', async (req, res, next) => {
   try {
     const { query: userQuery } = req.body;
@@ -42,8 +28,8 @@ router.post('/ask', async (req, res, next) => {
       throw new ValidationError('Query is required');
     }
 
-    // Step 1: Vector search with temporal decay → get top match
-    const topFaqs = await searchWithVectors(userQuery.trim(), 3);
+    // Step 1: Full-text search → get top matches
+    const topFaqs = await searchWithFullText(userQuery.trim(), 3);
     const matchedFaq = topFaqs[0] || null;
 
     let score = matchedFaq ? parseFloat(matchedFaq.confidence_score) : 0.0;
@@ -57,46 +43,48 @@ router.post('/ask', async (req, res, next) => {
       // Tier 1 — High confidence: direct DB answer
       source = 'db';
       answer = matchedFaq.short_answer || matchedFaq.answer;
-    } else if (matchedFaq && score >= 0.70) {
+    } else if (matchedFaq && score >= 0.01) {
       // Tier 2 — Medium confidence: LLM refinement via Groq
       source = 'llm';
       try {
-        const groq = await getGroq();
+        const llm = getLLM();
         const context = topFaqs
           .map((f, i) => `FAQ #${i + 1}: "${f.question}" → "${f.short_answer || f.answer}"`)
           .join('\n');
 
-        const chatCompletion = await groq.chat.completions.create({
-          model: 'llama-3.3-70b-versatile',
-          max_tokens: 250,
+        const chatCompletion = await llm.chat.completions.create({
+          model: LLM_MODEL,
+          max_tokens: 300,
           messages: [
             {
               role: 'system',
               content:
-                'You are a concise FAQ assistant. Answer in one sentence. ' +
+                'You are Yaksha, the concise FAQ assistant for VINS/Samagama. ' +
                 'Answer based strictly on the provided FAQs. Combine info from multiple ' +
-                'FAQs if needed. If the FAQs do not cover the query, say so honestly.',
+                'FAQs if needed. If the FAQs do not cover the query, say so honestly. ' +
+                'Keep your answer clear and under 3 sentences.',
             },
             {
               role: 'user',
-              content:
-                `User query: "${userQuery}"\n\nRelevant FAQs:\n${context}`,
+              content: `User query: "${userQuery}"\n\nRelevant FAQs:\n${context}`,
             },
           ],
         });
         answer = chatCompletion.choices[0].message.content.trim();
       } catch (llmErr) {
-        console.error('Groq LLM call failed, falling back to short_answer:', llmErr);
+        console.error('LLM call failed, falling back to short_answer:', llmErr.message);
         answer = matchedFaq.short_answer || matchedFaq.answer;
         source = 'db';
       }
     } else {
-      // Tier 3 — Low confidence: escalate to support ticket
-      source = 'escalation';
-      answer = null;
+      // Tier 3 — Low confidence / no match: still try to give the best DB answer
+      source = 'db';
+      answer = matchedFaq
+        ? (matchedFaq.short_answer || matchedFaq.answer)
+        : 'I could not find a matching FAQ. Please try rephrasing your question or raise a ticket for human support.';
     }
 
-    // Step 3: Always log the search event
+    // Step 3: Log the search event
     await dbQuery(
       `INSERT INTO search_logs (query_text, matched_faq_id, confidence_score, source)
        VALUES ($1, $2, $3, $4)`,

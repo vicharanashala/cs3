@@ -425,6 +425,18 @@ export function YakshaAI() {
             </div>
           </div>
         </div>
+
+        {/* Permanent Escalation Option */}
+        <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
+          <div className="flex flex-col items-center text-center space-y-3">
+             <Clipboard className="w-5 h-5 text-gray-400" />
+             <h3 className="text-sm font-semibold text-[#111827]">Need Human Help?</h3>
+             <p className="text-xs text-gray-500">If Yaksha isn't solving your problem, you can manually raise a query to our support engineers.</p>
+             <button onClick={() => navigate('/escalate')} className="bg-white border border-[#111827] text-[#111827] hover:bg-gray-50 font-semibold px-4 py-2 text-xs rounded transition mt-2 w-full">
+               Raise a Query
+             </button>
+          </div>
+        </div>
       </div>
     </div>
   );

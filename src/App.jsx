@@ -31,7 +31,6 @@ function Navbar() {
   const menuItems = [
     { path: '/', label: 'FAQ', icon: BookOpen },
     { path: '/yaksha', label: 'Yaksha AI', icon: Bot },
-    { path: '/escalate', label: 'Raise Query', icon: MessageSquare },
     { path: '/admin', label: 'Admin', icon: LayoutDashboard },
   ];
 

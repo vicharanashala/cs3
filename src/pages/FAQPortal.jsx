@@ -8,7 +8,7 @@ import {
 import { useApp } from '../store/AppContext';
 import { 
   getFAQs, getOnboardingFAQs, getFAQHistory, askAI, voteFAQ,
-  getAdminPopular
+  getAdminPopular, getCommunityContributions, suggestCommunityAnswer
 } from '../services/api';
 
 export function FAQPortal() {
@@ -44,6 +44,13 @@ export function FAQPortal() {
   // Ask Yaksha prompt (shown when search yields no results)
   const [showYakshaPrompt, setShowYakshaPrompt] = useState(false);
 
+  // Community Contributions & Suggest Answer
+  const [contributions, setContributions] = useState([]);
+  const [suggestFormFaqId, setSuggestFormFaqId] = useState(null);
+  const [suggestFormName, setSuggestFormName] = useState('');
+  const [suggestFormText, setSuggestFormText] = useState('');
+  const [suggestFormStatus, setSuggestFormStatus] = useState(null);
+
   // 1. Fetch Onboarding and FAQs
   useEffect(() => {
     const isDismissed = localStorage.getItem('onboarding_dismissed');
@@ -53,6 +60,7 @@ export function FAQPortal() {
     }
     fetchFAQs();
     fetchPopular();
+    fetchContributions();
   }, []);
 
   const fetchOnboarding = async () => {
@@ -86,6 +94,15 @@ export function FAQPortal() {
       if (res.success && res.data.length > 0) {
         setPopularFaqs(res.data);
       }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const fetchContributions = async () => {
+    try {
+      const res = await getCommunityContributions();
+      setContributions(res || []);
     } catch (err) {
       console.error(err);
     }
@@ -206,6 +223,31 @@ export function FAQPortal() {
       setVotesState(prev => ({ ...prev, [id]: 'voted_done' }));
     } catch (err) {
       console.error(err);
+    }
+  };
+
+  const handleSuggestSubmit = async (faqId) => {
+    setSuggestFormStatus(null);
+    try {
+      const res = await suggestCommunityAnswer({
+        faq_id: faqId,
+        contributor_name: suggestFormName,
+        answer_text: suggestFormText
+      });
+      if (res.success) {
+        if (res.decision === 'approved') {
+          setSuggestFormStatus({ status: 'success', msg: `✅ Your answer was excellent and has been immediately approved! (Hash: #${res.hash_id})` });
+          fetchFAQs();
+          fetchContributions();
+        } else if (res.decision === 'admin_review') {
+          setSuggestFormStatus({ status: 'success', msg: `📋 Your answer has been sent to the admins for review. Track it with hash: #${res.hash_id}` });
+        } else {
+          setSuggestFormStatus({ status: 'error', msg: 'Your answer was marked as spam or irrelevant by our AI gatekeeper.' });
+        }
+        setSuggestFormText('');
+      }
+    } catch (err) {
+      setSuggestFormStatus({ status: 'error', msg: 'Failed to submit suggestion.' });
     }
   };
 
@@ -467,6 +509,38 @@ export function FAQPortal() {
         </div>
       )}
 
+      {/* SECTION: COMMUNITY CONTRIBUTIONS */}
+      {contributions.length > 0 && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-[#111827]">New FAQs from Users</h2>
+            <span className="text-xs text-gray-400 border-b border-gray-200 pb-0.5">Community Contributions</span>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {contributions.slice(0, 4).map(contrib => (
+              <div key={contrib.id} className="bg-white border border-green-200 rounded-lg p-4 flex flex-col justify-between hover:shadow-sm transition">
+                <div>
+                  <div className="flex items-center space-x-2">
+                    <span className="bg-green-100 text-green-800 text-[9px] font-bold uppercase tracking-wide px-2 py-0.5 rounded">
+                      Approved Answer
+                    </span>
+                    {contrib.hash_id && (
+                      <span className="bg-gray-100 text-gray-500 text-[9px] font-mono px-2 py-0.5 rounded">#{contrib.hash_id}</span>
+                    )}
+                  </div>
+                  <h4 className="font-medium text-[#111827] text-sm mt-3 leading-snug line-clamp-2">{contrib.question}</h4>
+                  <p className="text-xs text-gray-600 mt-2 line-clamp-2 leading-relaxed">{contrib.answer_text}</p>
+                </div>
+                <div className="mt-4 pt-3 border-t border-gray-100 flex items-center justify-between text-[10px] text-gray-400">
+                  <span>Suggested by <strong className="text-gray-700">{contrib.contributor_name}</strong></span>
+                  <span>{new Date(contrib.created_at).toLocaleDateString()}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* SECTION D: FAQ BENTO GRID */}
       <div className="space-y-6">
         <div className="flex justify-between items-center border-b border-gray-200 pb-4">
@@ -630,6 +704,63 @@ export function FAQPortal() {
                             </div>
                           )}
                         </div>
+                      </div>
+
+                      {/* Suggest Answer row */}
+                      <div className="pt-2 border-t border-gray-100 flex flex-col space-y-2">
+                        <button
+                          onClick={() => {
+                             if (suggestFormFaqId === faq.id) setSuggestFormFaqId(null);
+                             else { 
+                               setSuggestFormFaqId(faq.id); 
+                               setSuggestFormStatus(null); 
+                               setSuggestFormText(''); 
+                             }
+                          }}
+                          className="text-[11px] text-gray-500 hover:text-[#111827] font-semibold text-left underline w-fit"
+                        >
+                          Suggest better answer
+                        </button>
+                        
+                        <AnimatePresence>
+                          {suggestFormFaqId === faq.id && (
+                            <motion.div
+                              initial={{ opacity: 0, height: 0 }}
+                              animate={{ opacity: 1, height: 'auto' }}
+                              exit={{ opacity: 0, height: 0 }}
+                              className="bg-gray-50 p-3 rounded-md space-y-3 border border-gray-200 mt-2"
+                            >
+                               <input
+                                 type="text"
+                                 placeholder="Your Name (Optional)"
+                                 value={suggestFormName}
+                                 onChange={(e) => setSuggestFormName(e.target.value)}
+                                 className="w-full px-3 py-2 text-xs border border-gray-200 rounded focus:outline-none focus:border-[#111827]"
+                               />
+                               <textarea
+                                 placeholder="What's a better or more complete answer?"
+                                 value={suggestFormText}
+                                 onChange={(e) => setSuggestFormText(e.target.value)}
+                                 rows={3}
+                                 className="w-full px-3 py-2 text-xs border border-gray-200 rounded focus:outline-none focus:border-[#111827]"
+                               />
+                               <div className="flex items-center justify-between">
+                                 <button
+                                   onClick={() => handleSuggestSubmit(faq.id)}
+                                   disabled={!suggestFormText.trim()}
+                                   className="bg-[#111827] text-white text-[11px] font-semibold px-3 py-1.5 rounded hover:bg-black disabled:opacity-50 transition"
+                                 >
+                                   Submit Suggestion
+                                 </button>
+                               </div>
+                               {suggestFormStatus && (
+                                 <p className={`text-[10px] mt-2 font-medium ${suggestFormStatus.status === 'success' ? 'text-green-600' : 'text-red-600'}`}>
+                                   {suggestFormStatus.msg}
+                                 </p>
+                               )}
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
                       </div>
                     </div>
                   </motion.div>

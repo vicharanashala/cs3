@@ -85,4 +85,67 @@ router.get('/rage-sessions', adminAuth, async (req, res, next) => {
   }
 });
 
+// GET /api/admin/queue - View community answers awaiting review
+router.get('/queue', adminAuth, async (req, res, next) => {
+  try {
+    const { hash } = req.query;
+    let sql = `
+      SELECT c.*, f.question, f.answer as current_answer
+      FROM community_answers c
+      JOIN faqs f ON c.faq_id = f.id
+      WHERE c.yaksha_decision = 'admin_review'
+    `;
+    const params = [];
+    
+    if (hash) {
+      sql += ` AND c.hash_id = $1`;
+      params.push(hash);
+    }
+    
+    sql += ` ORDER BY c.created_at DESC`;
+    
+    const result = await query(sql, params);
+    res.status(200).json({ success: true, data: result.rows });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// PUT /api/admin/queue/:id - Approve or reject community answer
+router.put('/queue/:id', adminAuth, async (req, res, next) => {
+  try {
+    const { action } = req.body; // 'approve' or 'reject'
+    const answerId = req.params.id;
+
+    if (action === 'approve') {
+      const getRes = await query('SELECT faq_id, answer_text FROM community_answers WHERE id = $1', [answerId]);
+      if (getRes.rows.length === 0) return res.status(404).json({ error: 'Not found' });
+      
+      const { faq_id, answer_text } = getRes.rows[0];
+      const faqRes = await query('SELECT answer FROM faqs WHERE id = $1', [faq_id]);
+      const officialAnswer = faqRes.rows[0].answer;
+      
+      await query(`INSERT INTO faq_history (faq_id, previous_answer) VALUES ($1, $2)`, [faq_id, officialAnswer]);
+      await query(`UPDATE faqs SET answer = $1, short_answer = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2`, [answer_text, faq_id]);
+      await query(`UPDATE community_answers SET yaksha_decision = 'approved' WHERE id = $1`, [answerId]);
+    } else {
+      await query(`UPDATE community_answers SET yaksha_decision = 'spam' WHERE id = $1`, [answerId]);
+    }
+
+    res.json({ success: true });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// DELETE /api/admin/community/:hash - Delete/revert by hash
+router.delete('/community/:hash', adminAuth, async (req, res, next) => {
+  try {
+    await query(`DELETE FROM community_answers WHERE hash_id = $1`, [req.params.hash]);
+    res.json({ success: true });
+  } catch (error) {
+    next(error);
+  }
+});
+
 export default router;
