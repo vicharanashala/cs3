@@ -32,6 +32,7 @@ router.get('/heatmap', adminAuth, async (req, res, next) => {
         COUNT(*) as volume
       FROM search_logs s
       JOIN faqs f ON s.matched_faq_id = f.id
+      WHERE s.source != 'vote'
       GROUP BY f.category
       ORDER BY avg_confidence ASC;
     `;
@@ -73,6 +74,7 @@ router.get('/rage-sessions', adminAuth, async (req, res, next) => {
         MIN(timestamp) as start_time
       FROM search_logs
       WHERE confidence_score < 0.70
+      AND source != 'vote'
       AND timestamp > NOW() - INTERVAL '2 minutes'
       GROUP BY query_text
       HAVING COUNT(*) >= 4

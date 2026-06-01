@@ -33,7 +33,7 @@ router.get('/', async (req, res, next) => {
 router.get('/onboarding', async (req, res, next) => {
   try {
     const sql = `
-      SELECT id, question, short_answer, category 
+      SELECT id, question, answer, short_answer, category 
       FROM faqs 
       WHERE is_onboarding_faq = true AND status = 'published' 
       LIMIT 5

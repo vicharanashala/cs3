@@ -78,4 +78,49 @@ router.get('/contributions', async (req, res, next) => {
   }
 });
 
+// GET /api/community/stats — community activity stats for the portal
+router.get('/stats', async (req, res, next) => {
+  try {
+    const statsResult = await query(`
+      SELECT 
+        COUNT(DISTINCT contributor_name) as total_contributors,
+        COUNT(*) FILTER (WHERE yaksha_decision = 'approved') as total_approved,
+        COUNT(*) as total_submissions
+      FROM community_answers
+    `);
+    
+    const stats = statsResult.rows[0];
+    res.json({
+      success: true,
+      data: {
+        total_contributors: parseInt(stats.total_contributors) || 0,
+        total_approved: parseInt(stats.total_approved) || 0,
+        total_submissions: parseInt(stats.total_submissions) || 0
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// GET /api/community/leaderboard — top contributors by approved answers
+router.get('/leaderboard', async (req, res, next) => {
+  try {
+    const result = await query(`
+      SELECT 
+        contributor_name,
+        COUNT(*) as approved_count,
+        MAX(created_at) as last_contribution
+      FROM community_answers
+      WHERE yaksha_decision = 'approved'
+      GROUP BY contributor_name
+      ORDER BY approved_count DESC, last_contribution DESC
+      LIMIT 10
+    `);
+    res.json({ success: true, data: result.rows });
+  } catch (error) {
+    next(error);
+  }
+});
+
 export default router;

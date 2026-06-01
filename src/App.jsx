@@ -36,13 +36,13 @@ function Navbar() {
 
   return (
     <nav className="border-b border-gray-200 dark:border-gray-800 bg-[#FDFDFD] dark:bg-gray-900 sticky top-0 z-50 select-none shadow-sm transition-colors duration-200">
-      <div className="max-w-6xl mx-auto px-6">
-        <div className="flex justify-between items-center h-16">
-          <div className="flex items-center space-x-2">
-            <span className="font-bold text-[#111827] dark:text-gray-50 tracking-tight font-sans text-xl">SAMAGAMA</span>
-            <span className="bg-[#111827] dark:bg-gray-100 text-white dark:text-gray-900 text-[10px] px-1.5 py-0.5 rounded font-medium">FAQ</span>
+      <div className="max-w-6xl mx-auto px-3 sm:px-6">
+        <div className="flex justify-between items-center h-14 sm:h-16">
+          <div className="flex items-center space-x-1.5 sm:space-x-2">
+            <span className="font-bold text-[#111827] dark:text-gray-50 tracking-tight font-sans text-base sm:text-xl">SAMAGAMA</span>
+            <span className="bg-[#111827] dark:bg-gray-100 text-white dark:text-gray-900 text-[8px] sm:text-[10px] px-1 sm:px-1.5 py-0.5 rounded font-medium">FAQ</span>
           </div>
-          <div className="flex space-x-6">
+          <div className="flex items-center space-x-2 sm:space-x-6">
             {menuItems.map((item) => {
               const Icon = item.icon;
               const isActive = location.pathname === item.path;
@@ -50,23 +50,23 @@ function Navbar() {
                 <Link
                   key={item.path}
                   to={item.path}
-                  className={`flex items-center space-x-1.5 h-16 px-1 border-b-2 text-sm transition-all duration-200 ${
+                  className={`flex items-center space-x-1 sm:space-x-1.5 h-14 sm:h-16 px-0.5 sm:px-1 border-b-2 text-xs sm:text-sm transition-all duration-200 ${
                     isActive
                       ? 'border-[#111827] dark:border-gray-100 text-[#111827] dark:text-gray-100 font-semibold'
                       : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-[#111827] dark:hover:text-gray-100 hover:border-gray-300 dark:hover:border-gray-600'
                   } ${isLoading ? 'pointer-events-none opacity-50' : ''}`}
                 >
-                  <Icon className="w-4 h-4" />
-                  <span>{item.label}</span>
+                  <Icon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                  <span className="hidden xs:inline sm:inline">{item.label}</span>
                 </Link>
               );
             })}
             <button
               onClick={toggleTheme}
-              className="flex items-center justify-center w-8 h-8 my-auto rounded-full bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition"
+              className="flex items-center justify-center w-7 h-7 sm:w-8 sm:h-8 my-auto rounded-full bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition"
               aria-label="Toggle Dark Mode"
             >
-              {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+              {theme === 'dark' ? <Sun className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> : <Moon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
             </button>
           </div>
         </div>
@@ -96,7 +96,7 @@ export function App() {
       <BrowserRouter>
         <div className="min-h-screen bg-[#FDFDFD] dark:bg-gray-900 font-sans text-[#111827] dark:text-gray-100 flex flex-col transition-colors duration-200">
           <Navbar />
-          <main className="flex-1 w-full max-w-6xl mx-auto px-6 py-8">
+          <main className="flex-1 w-full max-w-6xl mx-auto px-3 sm:px-6 py-4 sm:py-8">
             <AnimatedRoutes />
           </main>
         </div>

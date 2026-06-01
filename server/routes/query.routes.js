@@ -55,6 +55,9 @@ router.get('/:id', async (req, res, next) => {
 // PATCH /api/query/:id - Update status (triggers auto-FAQ creation upon 'closed')
 router.patch('/:id', async (req, res, next) => {
   const client = await pool().connect();
+  let updatedRow = null;
+  let currentQuery = null;
+
   try {
     const { id } = req.params;
     const { status } = req.body;
@@ -70,7 +73,7 @@ router.patch('/:id', async (req, res, next) => {
     if (selectRes.rows.length === 0) {
       throw new NotFoundError('Query not found');
     }
-    const currentQuery = selectRes.rows[0];
+    currentQuery = selectRes.rows[0];
 
     // Update status
     const updateSql = `
@@ -80,50 +83,51 @@ router.patch('/:id', async (req, res, next) => {
       RETURNING *
     `;
     const updateRes = await client.query(updateSql, [status, id]);
-    const updatedRow = updateRes.rows[0];
+    updatedRow = updateRes.rows[0];
 
-    // Trigger FAQ creation if transition is to 'closed'
-    if (status === 'closed' && currentQuery.status !== 'closed') {
-      try {
-        const response = await openai.chat.completions.create({
-          model: process.env.OPENAI_MODEL || 'llama-3.1-8b-instant',
-          response_format: { type: 'json_object' },
-          messages: [
-            { role: 'system', content: 'You are a technical FAQ generator. Return only valid JSON.' },
-            {
-              role: 'user',
-              content: `Convert this support complaint into a clean FAQ entry.
-              Subject: ${currentQuery.subject}
-              Description: ${currentQuery.description}
-              Return JSON: { "question": string, "answer": string }`
-            }
-          ]
-        });
-
-        const faqData = JSON.parse(response.choices[0].message.content.trim());
-        if (faqData && faqData.question && faqData.answer) {
-          const insertFaqSql = `
-            INSERT INTO faqs (question, answer, status, is_onboarding_faq)
-            VALUES ($1, $2, 'pending_review', false)
-          `;
-          await client.query(insertFaqSql, [faqData.question, faqData.answer]);
-
-          // Clear cache
-          del('all_faqs');
-        }
-      } catch (gptErr) {
-        console.error('Failed to auto-generate FAQ during query closure:', gptErr);
-        // Do not crash the query patch operation if OpenAI fails
-      }
-    }
-
+    // COMMIT the transaction BEFORE any external API calls
     await client.query('COMMIT');
-    res.status(200).json({ success: true, data: updatedRow });
   } catch (error) {
     await client.query('ROLLBACK');
-    next(error);
+    client.release();
+    return next(error);
   } finally {
     client.release();
+  }
+
+  // Send response immediately — don't block on FAQ generation
+  res.status(200).json({ success: true, data: updatedRow });
+
+  // Fire-and-forget: Generate FAQ from closed ticket via Groq (outside transaction)
+  if (req.body.status === 'closed' && currentQuery && currentQuery.status !== 'closed') {
+    try {
+      const response = await openai.chat.completions.create({
+        model: process.env.OPENAI_MODEL || 'llama-3.1-8b-instant',
+        response_format: { type: 'json_object' },
+        messages: [
+          { role: 'system', content: 'You are a technical FAQ generator. Return only valid JSON.' },
+          {
+            role: 'user',
+            content: `Convert this support complaint into a clean FAQ entry.
+            Subject: ${currentQuery.subject}
+            Description: ${currentQuery.description}
+            Return JSON: { "question": string, "answer": string }`
+          }
+        ]
+      });
+
+      const faqData = JSON.parse(response.choices[0].message.content.trim());
+      if (faqData && faqData.question && faqData.answer) {
+        await dbQuery(
+          `INSERT INTO faqs (question, answer, status, is_onboarding_faq) VALUES ($1, $2, 'pending_review', false)`,
+          [faqData.question, faqData.answer]
+        );
+        del('all_faqs');
+      }
+    } catch (gptErr) {
+      console.error('Failed to auto-generate FAQ during query closure:', gptErr.message);
+      // Non-blocking — ticket was already closed successfully
+    }
   }
 });
 

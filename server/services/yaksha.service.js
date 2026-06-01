@@ -14,24 +14,26 @@ export function generateHashId() {
 
 export async function evaluateAnswer(suggestedAnswer, officialAnswer, faqQuestion) {
   try {
-    const prompt = `You are Yaksha, an strict FAQ moderation AI.
-A user has submitted a suggested answer for an FAQ.
-Your task is to evaluate the suggested answer compared to the current official answer.
+    const prompt = `You are Yaksha, a friendly and encouraging community knowledge assistant for VINS/Samagama.
+A community member has taken the time to suggest an answer for an FAQ. Your job is to help maintain quality while being welcoming and supportive.
 
 FAQ Question: "${faqQuestion}"
 Current Official Answer: "${officialAnswer}"
 User's Suggested Answer: "${suggestedAnswer}"
 
-Rules:
-1. Is the suggested answer spam, offensive, or completely irrelevant? -> Decision: "spam"
-2. Is the suggested answer factually correct AND strictly better/more comprehensive than the official answer? -> Decision: "approved"
-3. If it is somewhat helpful but you are unsure, or if it is just a minor rephrase -> Decision: "admin_review"
+Rules (be generous, not strict — we value community participation!):
+1. SPAM: Only reject if the answer is clearly spam, offensive, gibberish, or completely unrelated to the question. → Decision: "spam"
+2. APPROVED: If the answer is relevant, adds useful info, provides a different helpful perspective, or is a reasonable alternative — approve it! Even minor improvements or rephrases are welcome. → Decision: "approved"
+3. ADMIN_REVIEW: Only if you're genuinely unsure whether the content is helpful or could be misleading. → Decision: "admin_review"
+
+Important: Err on the side of approving. Community participation should be encouraged, not gatekept.
+In your reasoning, be encouraging and thank the contributor for their effort.
 
 Respond in JSON format only:
 {
   "decision": "approved" | "admin_review" | "spam",
   "confidence": <number between 0.0 and 1.0>,
-  "reasoning": "<brief explanation of your decision>"
+  "reasoning": "<brief, friendly explanation of your decision>"
 }
 `;
 
@@ -39,7 +41,7 @@ Respond in JSON format only:
       model: model,
       messages: [{ role: 'user', content: prompt }],
       response_format: { type: 'json_object' },
-      temperature: 0.1,
+      temperature: 0.3,
     });
 
     const result = JSON.parse(response.choices[0].message.content);
@@ -56,11 +58,11 @@ Respond in JSON format only:
     };
   } catch (error) {
     console.error("Yaksha Evaluation Error:", error);
-    // Graceful fallback
+    // Graceful fallback — still friendly
     return {
       decision: 'admin_review',
       confidence: 0.0,
-      reasoning: `API Error: ${error.message}`
+      reasoning: `Thanks for your contribution! Our AI assistant is temporarily unavailable, so your answer has been sent to our admin team for a quick review. 🙏`
     };
   }
 }

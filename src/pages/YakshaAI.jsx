@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 import rehypeSanitize from 'rehype-sanitize';
 import { 
-  Send, Bot, TrendingUp, AlertTriangle, Clipboard, Check, Info, X
+  Send, Bot, TrendingUp, AlertTriangle, Clipboard, Check, Info, X, ThumbsUp, ThumbsDown, Sparkles
 } from 'lucide-react';
 import { useApp } from '../store/AppContext';
 import { askAI } from '../services/api';
@@ -56,8 +56,17 @@ export function YakshaAI() {
 
   // Message shape: { role, content, confidence, relatedFaqs: [{id, question, short_answer, category, confidence}] }
   const [messages, setMessages] = useState([
-    { role: 'assistant', content: 'Greetings seeker. I am **Yaksha**, the Samagama semantic intelligence. Ask me anything, and I shall search the knowledge base for relevant FAQs.', confidence: 1.0, relatedFaqs: [] }
+    { role: 'assistant', content: 'Hey! 👋 I\'m **Yaksha**, your VINS knowledge assistant. Ask me anything about internships, NOC, Zoom, ViBe, or any other topic — I\'ll find the best answers from our community knowledge base!', confidence: 1.0, relatedFaqs: [] }
   ]);
+
+  // Suggested questions for empty state
+  const suggestedQuestions = [
+    'How to apply for VINS internship?',
+    'How to get NOC certificate?',
+    'What is ViBe event?',
+    'How to join Zoom sessions?'
+  ];
+  const [showSuggestions, setShowSuggestionPills] = useState(true);
 
   // Escape Hatch tracking states
   const [lastQueryTime, setLastQueryTime] = useState(0);
@@ -81,7 +90,7 @@ export function YakshaAI() {
     if (!inputVal.trim() || isLoading) return;
 
     const userQuery = inputVal.trim();
-    setFailedQueryText(userQuery);
+    setShowSuggestionPills(false);
     setInputVal('');
 
     // Update messages history with user's question
@@ -114,24 +123,27 @@ export function YakshaAI() {
           relatedFaqs: response.related_faqs || []
         }]);
 
-        // Escape hatch triggers:
-        // Trigger 1: score < 0.50
-        // Trigger 2: 3 queries in 8 seconds
-        // Trigger 3: backend source is "escalation" (which means score < 0.70)
-        const meetsThresholdEscape = aiScore < 0.50;
-        const meetsRageEscape = currentQueryCount >= 3 && (now - lastQueryTime <= 8000);
-        const meetsBackendEscalation = response.source === 'escalation';
+        // Reset escape banner on high-confidence queries
+        if (aiScore >= 0.70) {
+          setShowEscapeBanner(false);
+        } else {
+          // Escape hatch triggers:
+          const meetsThresholdEscape = aiScore < 0.50;
+          const meetsRageEscape = currentQueryCount >= 3 && (now - lastQueryTime <= 8000);
+          const meetsBackendEscalation = response.source === 'escalation';
 
-        if (meetsThresholdEscape || meetsRageEscape || meetsBackendEscalation) {
-          setShowEscapeBanner(true);
-          setLastFailedQuery(userQuery);
+          if (meetsThresholdEscape || meetsRageEscape || meetsBackendEscalation) {
+            setShowEscapeBanner(true);
+            setFailedQueryText(userQuery);
+            setLastFailedQuery(userQuery);
+          }
         }
       }
     } catch (err) {
       console.error(err);
       setMessages(prev => [...prev, {
         role: 'assistant',
-        content: 'Apologies. A semantic service outage occurred. Please raise a ticket.',
+        content: 'Oops! I\'m having trouble connecting right now 😅 Please try again in a moment, or raise a ticket and our team will help you out!',
         confidence: 0.0
       }]);
       setShowEscapeBanner(true);
@@ -172,9 +184,9 @@ export function YakshaAI() {
   };
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+    <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 lg:gap-8">
       {/* LEFT COLUMN: CHAT INTERFACE */}
-      <div className="lg:col-span-3 space-y-4 flex flex-col h-[75vh]">
+      <div className="lg:col-span-3 space-y-4 flex flex-col h-[60vh] lg:h-[75vh]">
         {/* Escape Hatch Banner */}
         <AnimatePresence>
           {showEscapeBanner && (
@@ -184,16 +196,24 @@ export function YakshaAI() {
               exit={{ opacity: 0, y: -10 }}
               className="bg-[#FEF9C3] border border-yellow-200 text-yellow-900 px-4 py-3 rounded-lg flex items-center justify-between text-xs md:text-sm shadow-sm"
             >
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-2 flex-1">
                 <AlertTriangle className="w-4 h-4 text-yellow-700 shrink-0" />
-                <span className="font-medium">Looks like you need more help. Our support engineers are standing by.</span>
+                <span className="font-medium">Need more help? Our support team is here for you! 🙌</span>
               </div>
-              <button
-                onClick={handleEscapeHatch}
-                className="bg-[#111827] dark:bg-gray-100 text-white dark:text-gray-900 hover:bg-black font-semibold px-3 py-1.5 rounded transition shrink-0 ml-4"
-              >
-                Raise a Ticket →
-              </button>
+              <div className="flex items-center space-x-2 shrink-0 ml-2">
+                <button
+                  onClick={handleEscapeHatch}
+                  className="bg-[#111827] dark:bg-gray-100 text-white dark:text-gray-900 hover:bg-black font-semibold px-3 py-1.5 rounded transition text-xs sm:text-sm"
+                >
+                  Raise a Ticket →
+                </button>
+                <button
+                  onClick={() => setShowEscapeBanner(false)}
+                  className="text-yellow-700 hover:text-yellow-900 transition p-1"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
             </motion.div>
           )}
         </AnimatePresence>
@@ -309,7 +329,7 @@ export function YakshaAI() {
             <div className="flex flex-col items-start space-y-2">
               <div className="flex items-center space-x-1.5 text-xs text-gray-400">
                 <Bot className="w-3.5 h-3.5 text-[#111827] dark:text-gray-100" />
-                <span>Yaksha is searching...</span>
+                <span>Finding the best answer for you... ✨</span>
               </div>
               <div className="bg-white dark:bg-gray-800 border border-gray-100 rounded-lg p-4 w-[60%] shadow-sm space-y-3">
                 <div className="animate-pulse w-[100%]" style={{ background: '#E5E7EB', borderRadius: '4px', height: '16px', filter: 'blur(3px)' }} />
@@ -363,6 +383,25 @@ export function YakshaAI() {
             )}
           </AnimatePresence>
 
+          {/* Suggested Questions — shown only at start */}
+          {showSuggestions && messages.length <= 1 && (
+            <div className="flex flex-wrap gap-2 mt-2">
+              {suggestedQuestions.map((q, i) => (
+                <button
+                  key={i}
+                  onClick={() => {
+                    setInputVal(q);
+                    setShowSuggestionPills(false);
+                  }}
+                  className="flex items-center space-x-1.5 bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 hover:border-[#111827] dark:hover:border-gray-100 text-xs text-gray-600 dark:text-gray-400 hover:text-[#111827] dark:hover:text-gray-100 px-3 py-2 rounded-full transition"
+                >
+                  <Sparkles className="w-3 h-3" />
+                  <span>{q}</span>
+                </button>
+              ))}
+            </div>
+          )}
+
           <div ref={chatEndRef} />
         </div>
 
@@ -377,8 +416,8 @@ export function YakshaAI() {
                 handleSubmit(e);
               }
             }}
-            placeholder="Ask Yaksha anything..."
-            className="flex-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg py-3 px-4 text-sm text-[#111827] dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-[#111827] dark:focus:ring-gray-100 focus:border-[#111827] dark:focus:border-gray-100 resize-none h-12 min-h-[48px] max-h-[120px]"
+            placeholder="Ask me anything..."
+            className="flex-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg py-3 px-3 sm:px-4 text-sm text-[#111827] dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-[#111827] dark:focus:ring-gray-100 focus:border-[#111827] dark:focus:border-gray-100 resize-none h-12 min-h-[48px] max-h-[120px]"
             disabled={isLoading}
           />
           <button

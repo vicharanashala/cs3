@@ -206,6 +206,26 @@ export async function getCommunityContributions() {
   }
 }
 
+export async function getCommunityStats() {
+  try {
+    const response = await api.get('/community/stats');
+    return response.data;
+  } catch (error) {
+    console.error('API Error [getCommunityStats]:', error);
+    throw error;
+  }
+}
+
+export async function getCommunityLeaderboard() {
+  try {
+    const response = await api.get('/community/leaderboard');
+    return response.data;
+  } catch (error) {
+    console.error('API Error [getCommunityLeaderboard]:', error);
+    throw error;
+  }
+}
+
 export async function getAdminQueue(hash) {
   try {
     const params = hash ? { hash } : {};
@@ -254,6 +274,8 @@ export default {
   getAdminRageSessions,
   suggestCommunityAnswer,
   getCommunityContributions,
+  getCommunityStats,
+  getCommunityLeaderboard,
   getAdminQueue,
   adminReviewQueueItem,
   adminDeleteCommunityHash,

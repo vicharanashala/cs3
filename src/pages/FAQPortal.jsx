@@ -8,7 +8,8 @@ import {
 import { useApp } from '../store/AppContext';
 import { 
   getFAQs, getOnboardingFAQs, getFAQHistory, askAI, voteFAQ,
-  getAdminPopular, getCommunityContributions, suggestCommunityAnswer
+  getAdminPopular, getCommunityContributions, suggestCommunityAnswer,
+  getCommunityStats, getCommunityLeaderboard
 } from '../services/api';
 
 export function FAQPortal() {
@@ -51,6 +52,10 @@ export function FAQPortal() {
   const [suggestFormText, setSuggestFormText] = useState('');
   const [suggestFormStatus, setSuggestFormStatus] = useState(null);
 
+  // Community stats & leaderboard
+  const [communityStats, setCommunityStats] = useState({ total_contributors: 0, total_approved: 0, total_submissions: 0 });
+  const [leaderboard, setLeaderboard] = useState([]);
+
   // 1. Fetch Onboarding and FAQs
   useEffect(() => {
     const isDismissed = localStorage.getItem('onboarding_dismissed');
@@ -61,6 +66,7 @@ export function FAQPortal() {
     fetchFAQs();
     fetchPopular();
     fetchContributions();
+    fetchCommunityData();
   }, []);
 
   const fetchOnboarding = async () => {
@@ -103,6 +109,19 @@ export function FAQPortal() {
     try {
       const res = await getCommunityContributions();
       setContributions(res || []);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const fetchCommunityData = async () => {
+    try {
+      const [statsRes, lbRes] = await Promise.all([
+        getCommunityStats(),
+        getCommunityLeaderboard()
+      ]);
+      if (statsRes.success) setCommunityStats(statsRes.data);
+      if (lbRes.success) setLeaderboard(lbRes.data);
     } catch (err) {
       console.error(err);
     }
@@ -261,7 +280,7 @@ export function FAQPortal() {
   });
 
   return (
-    <div className="space-y-12">
+    <div className="space-y-10 px-1 sm:px-0">
       {/* SECTION A: ONBOARDING CHECKLIST */}
       <AnimatePresence>
         {showOnboarding && onboardingFaqs.length > 0 && (
@@ -314,6 +333,24 @@ export function FAQPortal() {
         <p className="text-gray-500 dark:text-gray-400 text-sm md:text-base">
           By the community, for the community — search VINS internships, NOC, Zoom, ViBe, Rosetta...
         </p>
+
+        {/* Community Stats Banner */}
+        {(communityStats.total_contributors > 0 || communityStats.total_approved > 0) && (
+          <div className="mt-3 flex flex-wrap items-center justify-center gap-3 sm:gap-6 text-xs sm:text-sm">
+            <div className="flex items-center space-x-1.5 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-800 dark:text-green-300 px-3 py-1.5 rounded-full">
+              <span className="font-bold">{communityStats.total_contributors}</span>
+              <span>contributors</span>
+            </div>
+            <div className="flex items-center space-x-1.5 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 text-blue-800 dark:text-blue-300 px-3 py-1.5 rounded-full">
+              <span className="font-bold">{communityStats.total_approved}</span>
+              <span>approved answers</span>
+            </div>
+            <div className="flex items-center space-x-1.5 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 text-purple-800 dark:text-purple-300 px-3 py-1.5 rounded-full">
+              <span className="font-bold">{communityStats.total_submissions}</span>
+              <span>total suggestions</span>
+            </div>
+          </div>
+        )}
         
         <div className="relative mt-6">
           <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none text-gray-400">
@@ -512,10 +549,27 @@ export function FAQPortal() {
       {/* SECTION: COMMUNITY CONTRIBUTIONS */}
       {contributions.length > 0 && (
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-[#111827] dark:text-gray-100">New FAQs from Users</h2>
-            <span className="text-xs text-gray-400 border-b border-gray-200 dark:border-gray-700 pb-0.5">Community Contributions</span>
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+            <h2 className="text-lg font-semibold text-[#111827] dark:text-gray-100">🌟 Community Contributors</h2>
+            <span className="text-xs text-gray-400 border-b border-gray-200 dark:border-gray-700 pb-0.5">Answers improved by the community</span>
           </div>
+
+          {/* Top Contributors Leaderboard */}
+          {leaderboard.length > 0 && (
+            <div className="bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-900/20 dark:to-blue-900/20 border border-purple-200 dark:border-purple-800 rounded-lg p-4">
+              <h3 className="text-xs font-bold text-purple-700 dark:text-purple-300 uppercase tracking-wider mb-3">🏆 Top Contributors</h3>
+              <div className="flex flex-wrap gap-3">
+                {leaderboard.slice(0, 5).map((person, i) => (
+                  <div key={i} className="flex items-center space-x-2 bg-white dark:bg-gray-800 border border-purple-100 dark:border-purple-700 rounded-full px-3 py-1.5">
+                    <span className="text-[10px] font-bold text-purple-600 dark:text-purple-400">#{i + 1}</span>
+                    <span className="text-xs font-semibold text-[#111827] dark:text-gray-100">{person.contributor_name}</span>
+                    <span className="text-[10px] text-gray-400 bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded-full">{person.approved_count} answers</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {contributions.slice(0, 4).map(contrib => (
               <div key={contrib.id} className="bg-white dark:bg-gray-800 border border-green-200 rounded-lg p-4 flex flex-col justify-between hover:shadow-sm transition">
@@ -543,7 +597,7 @@ export function FAQPortal() {
 
       {/* SECTION D: FAQ BENTO GRID */}
       <div className="space-y-6">
-        <div className="flex justify-between items-center border-b border-gray-200 dark:border-gray-700 pb-4">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-gray-200 dark:border-gray-700 pb-4">
           <h2 className="text-xl font-bold tracking-tight text-[#111827] dark:text-gray-100">Browse by Category</h2>
           <span className="text-xs text-gray-500 dark:text-gray-400 font-medium bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded">
             {faqs.length} answers and growing
