@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Users, Award, MessageSquare, Target, Bot, SearchX, Hash } from 'lucide-react';
 import { useApp } from '../store/AppContext';
 import { getCommunityStats, getCommunityLeaderboard, getCommunityBounties, getCommunityFeed, checkCommunitySuggestionStatus } from '../services/api';
