@@ -128,8 +128,14 @@ router.put('/queue/:id', adminAuth, async (req, res, next) => {
       const officialAnswer = faqRes.rows[0].answer;
       
       await query(`INSERT INTO faq_history (faq_id, previous_answer) VALUES ($1, $2)`, [faq_id, officialAnswer]);
-      await query(`UPDATE faqs SET answer = $1, short_answer = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2`, [answer_text, faq_id]);
+      
+      // Update FAQ (only full answer to avoid breaking short_answer char limits with markdown)
+      await query(`UPDATE faqs SET answer = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2`, [answer_text, faq_id]);
+      
       await query(`UPDATE community_answers SET yaksha_decision = 'approved' WHERE id = $1`, [answerId]);
+      
+      // Invalidate Cache
+      import('../services/cache.service.js').then(m => m.del('all_faqs')).catch(e => console.error(e));
     } else {
       await query(`UPDATE community_answers SET yaksha_decision = 'spam' WHERE id = $1`, [answerId]);
     }

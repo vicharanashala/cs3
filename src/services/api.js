@@ -236,6 +236,16 @@ export async function getCommunityBounties() {
   }
 }
 
+export async function checkCommunitySuggestionStatus(hash) {
+  try {
+    const response = await api.get(`/community/status/${hash}`);
+    return response.data;
+  } catch (error) {
+    console.error('API Error [checkCommunitySuggestionStatus]:', error);
+    throw error;
+  }
+}
+
 export async function getCommunityFeed() {
   try {
     const response = await api.get('/community/feed');

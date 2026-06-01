@@ -141,6 +141,28 @@ router.get('/leaderboard', async (req, res, next) => {
   }
 });
 
+// GET /api/community/status/:hash - Check status of a submitted suggestion
+router.get('/status/:hash', async (req, res, next) => {
+  try {
+    const { hash } = req.params;
+    const sql = `
+      SELECT c.yaksha_decision, c.yaksha_reasoning, c.created_at, f.question
+      FROM community_answers c
+      JOIN faqs f ON c.faq_id = f.id
+      WHERE c.hash_id = $1
+    `;
+    const result = await query(sql, [hash]);
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Suggestion not found.' });
+    }
+
+    res.status(200).json({ success: true, data: result.rows[0] });
+  } catch (error) {
+    next(error);
+  }
+});
+
 // GET /api/community/bounties - MVP Feature: Returns top unanswered queries for the community to solve
 router.get('/bounties', async (req, res, next) => {
   try {

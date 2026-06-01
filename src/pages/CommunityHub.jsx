@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Users, Award, MessageSquare, Target, Bot, SearchX } from 'lucide-react';
+import { Users, Award, MessageSquare, Target, Bot, SearchX, Hash } from 'lucide-react';
 import { useApp } from '../store/AppContext';
-import { getCommunityStats, getCommunityLeaderboard, getCommunityBounties, getCommunityFeed } from '../services/api';
+import { getCommunityStats, getCommunityLeaderboard, getCommunityBounties, getCommunityFeed, checkCommunitySuggestionStatus } from '../services/api';
 
 export function CommunityHub() {
   const { isLoading, setIsLoading } = useApp();
@@ -10,6 +10,10 @@ export function CommunityHub() {
   const [leaderboard, setLeaderboard] = useState([]);
   const [bounties, setBounties] = useState([]);
   const [feed, setFeed] = useState([]);
+  
+  const [trackHash, setTrackHash] = useState('');
+  const [trackResult, setTrackResult] = useState(null);
+  const [isTracking, setIsTracking] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -35,6 +39,21 @@ export function CommunityHub() {
     }
   };
 
+  const handleTrackHash = async (e) => {
+    e.preventDefault();
+    if (!trackHash.trim()) return;
+    setIsTracking(true);
+    setTrackResult(null);
+    try {
+      const res = await checkCommunitySuggestionStatus(trackHash.trim());
+      if (res.success) setTrackResult(res.data);
+    } catch (err) {
+      setTrackResult({ error: 'Suggestion not found or invalid hash.' });
+    } finally {
+      setIsTracking(false);
+    }
+  };
+
   return (
     <div className="space-y-10 px-4 sm:px-0 max-w-5xl mx-auto">
       {/* Header */}
@@ -45,6 +64,67 @@ export function CommunityHub() {
         <p className="text-gray-500 dark:text-gray-400 max-w-2xl mx-auto">
           The knowledge base is powered by students like you. Hunt bounties, suggest edits, and climb the leaderboard.
         </p>
+
+        {/* Track Suggestion Bar */}
+        <div className="max-w-md mx-auto mt-6">
+          <form onSubmit={handleTrackHash} className="flex items-center space-x-2">
+            <div className="relative flex-1">
+              <Hash className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Track your suggestion hash (e.g. a1b2c3d4)"
+                value={trackHash}
+                onChange={(e) => setTrackHash(e.target.value)}
+                className="w-full pl-9 pr-3 py-2 text-xs border border-gray-200 dark:border-gray-700 rounded-md focus:outline-none focus:border-[#111827] dark:focus:border-gray-100 bg-gray-50 dark:bg-gray-900/50"
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={!trackHash.trim() || isTracking}
+              className="bg-[#111827] dark:bg-gray-100 text-white dark:text-gray-900 text-xs font-bold px-4 py-2 rounded-md hover:bg-black transition disabled:opacity-50"
+            >
+              Track
+            </button>
+          </form>
+          
+          <AnimatePresence>
+            {trackResult && (
+              <motion.div
+                initial={{ opacity: 0, y: -5 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -5 }}
+                className={`mt-3 p-3 rounded-md border text-left text-xs ${
+                  trackResult.error 
+                    ? 'bg-red-50 border-red-100 text-red-700'
+                    : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700'
+                }`}
+              >
+                {trackResult.error ? (
+                  <p className="font-semibold">{trackResult.error}</p>
+                ) : (
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <span className="font-semibold text-gray-500 dark:text-gray-400">Status:</span>
+                      <span className={`font-bold uppercase tracking-wider px-2 py-0.5 rounded text-[10px] ${
+                        trackResult.yaksha_decision === 'approved' ? 'bg-green-100 text-green-800'
+                        : trackResult.yaksha_decision === 'admin_review' ? 'bg-amber-100 text-amber-800'
+                        : 'bg-red-100 text-red-800'
+                      }`}>
+                        {trackResult.yaksha_decision.replace('_', ' ')}
+                      </span>
+                    </div>
+                    <p className="text-gray-600 dark:text-gray-300">
+                      <span className="font-semibold">FAQ:</span> {trackResult.question}
+                    </p>
+                    <p className="text-gray-500 italic mt-1 bg-gray-50 dark:bg-gray-900 p-2 rounded">
+                      "Yaksha reasoning: {trackResult.yaksha_reasoning}"
+                    </p>
+                  </div>
+                )}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
       </div>
 
       {/* Stats Grid */}
