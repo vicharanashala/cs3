@@ -546,12 +546,18 @@ export function AdminDashboard() {
         ) : (
           <div className="space-y-3">
             {queueItems.map(item => (
-              <div key={item.id} className="border border-amber-200 bg-amber-50/50 rounded-lg p-4 space-y-3">
+              <div key={item.id} className={`border rounded-lg p-4 space-y-3 ${
+                item.yaksha_decision === 'admin_review' ? 'border-amber-200 bg-amber-50/50' : 'border-red-200 bg-red-50/30'
+              }`}>
                 {/* Header row */}
                 <div className="flex items-start justify-between">
                   <div className="space-y-1">
                     <div className="flex items-center space-x-2">
-                      <span className="bg-amber-100 text-amber-800 text-[9px] font-bold uppercase tracking-wide px-2 py-0.5 rounded">Pending Review</span>
+                      <span className={`text-[9px] font-bold uppercase tracking-wide px-2 py-0.5 rounded ${
+                        item.yaksha_decision === 'admin_review' ? 'bg-amber-100 text-amber-800' : 'bg-red-100 text-red-800'
+                      }`}>
+                        {item.yaksha_decision === 'admin_review' ? 'Pending Review' : `Yaksha ${item.yaksha_decision}`}
+                      </span>
                       <span className="bg-gray-100 dark:bg-gray-800 text-gray-600 text-[9px] font-mono px-2 py-0.5 rounded">#{item.hash_id}</span>
                       <span className="text-[10px] text-gray-400">conf: {Math.round((item.yaksha_confidence || 0) * 100)}%</span>
                     </div>
@@ -581,7 +587,7 @@ export function AdminDashboard() {
                 )}
 
                 {/* Footer: contributor + actions */}
-                <div className="flex items-center justify-between pt-2 border-t border-amber-100">
+                <div className={`flex items-center justify-between pt-2 border-t ${item.yaksha_decision === 'admin_review' ? 'border-amber-100' : 'border-red-100'}`}>
                   <span className="text-[10px] text-gray-500 dark:text-gray-400">Submitted by <strong className="text-gray-700">{item.contributor_name || 'Anonymous'}</strong></span>
                   <div className="flex items-center space-x-2">
                     <button

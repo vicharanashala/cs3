@@ -95,7 +95,7 @@ router.get('/queue', adminAuth, async (req, res, next) => {
       SELECT c.*, f.question, f.answer as current_answer
       FROM community_answers c
       JOIN faqs f ON c.faq_id = f.id
-      WHERE c.yaksha_decision = 'admin_review'
+      WHERE c.yaksha_decision IN ('admin_review', 'rejected', 'spam')
     `;
     const params = [];
     
