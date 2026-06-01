@@ -1,12 +1,13 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Link, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { BookOpen, Bot, MessageSquare, LayoutDashboard, Moon, Sun } from 'lucide-react';
+import { BookOpen, Bot, MessageSquare, LayoutDashboard, Moon, Sun, Users } from 'lucide-react';
 import { AppProvider, useApp } from './store/AppContext';
 import FAQPortal from './pages/FAQPortal';
 import YakshaAI from './pages/YakshaAI';
 import EscalationForm from './pages/EscalationForm';
 import AdminDashboard from './pages/AdminDashboard';
+import CommunityHub from './pages/CommunityHub';
 
 // Page animation wrapper
 function PageWrapper({ children }) {
@@ -30,6 +31,7 @@ function Navbar() {
 
   const menuItems = [
     { path: '/', label: 'FAQ', icon: BookOpen },
+    { path: '/community', label: 'Community', icon: Users },
     { path: '/yaksha', label: 'Yaksha AI', icon: Bot },
     { path: '/admin', label: 'Admin', icon: LayoutDashboard },
   ];
@@ -82,6 +84,7 @@ function AnimatedRoutes() {
     <AnimatePresence mode="wait">
       <Routes location={location} key={location.pathname}>
         <Route path="/" element={<PageWrapper><FAQPortal /></PageWrapper>} />
+        <Route path="/community" element={<PageWrapper><CommunityHub /></PageWrapper>} />
         <Route path="/yaksha" element={<PageWrapper><YakshaAI /></PageWrapper>} />
         <Route path="/escalate" element={<PageWrapper><EscalationForm /></PageWrapper>} />
         <Route path="/admin" element={<PageWrapper><AdminDashboard /></PageWrapper>} />
