@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { 
   BookOpen, X, Search, Clock, ThumbsUp, ThumbsDown, 
   AlertTriangle, Check, ChevronDown, ChevronUp, AlertCircle, Sparkles
@@ -692,9 +694,13 @@ export function FAQPortal() {
                             initial={{ opacity: 0, height: 0 }}
                             animate={{ opacity: 1, height: 'auto' }}
                             exit={{ opacity: 0, height: 0 }}
-                            className="text-xs text-gray-600 whitespace-pre-line leading-relaxed border-t border-gray-100 pt-3"
+                            className="text-xs text-[#111827] dark:text-gray-300 border-t border-gray-100 pt-3"
                           >
-                            {faq.answer || 'No description available.'}
+                            <div className="prose prose-sm prose-gray dark:prose-invert max-w-none prose-p:leading-relaxed prose-pre:bg-gray-100 dark:prose-pre:bg-gray-800 prose-pre:text-[#111827] dark:prose-pre:text-gray-100 prose-a:text-blue-600 dark:prose-a:text-blue-400">
+                              <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                                {faq.answer || 'No description available.'}
+                              </ReactMarkdown>
+                            </div>
                           </motion.div>
                         )}
                       </AnimatePresence>
@@ -802,13 +808,19 @@ export function FAQPortal() {
                                  onChange={(e) => setSuggestFormEmail(e.target.value)}
                                  className="w-full px-3 py-2 text-xs border border-gray-200 dark:border-gray-700 rounded focus:outline-none focus:border-[#111827] dark:focus:border-gray-100"
                                />
-                               <textarea
-                                 placeholder="What's a better or more complete answer?"
-                                 value={suggestFormText}
-                                 onChange={(e) => setSuggestFormText(e.target.value)}
-                                 rows={3}
-                                 className="w-full px-3 py-2 text-xs border border-gray-200 dark:border-gray-700 rounded focus:outline-none focus:border-[#111827] dark:focus:border-gray-100"
-                               />
+                               <div className="relative">
+                                 <textarea
+                                   placeholder="What's a better or more complete answer?"
+                                   value={suggestFormText}
+                                   onChange={(e) => setSuggestFormText(e.target.value)}
+                                   rows={3}
+                                   className="w-full px-3 py-2 pb-6 text-xs border border-gray-200 dark:border-gray-700 rounded focus:outline-none focus:border-[#111827] dark:focus:border-gray-100"
+                                 />
+                                 <div className="absolute bottom-1 right-2 flex items-center space-x-1 opacity-50">
+                                   <svg viewBox="0 0 16 16" width="12" height="12" fill="currentColor"><path d="M14.85 3H1.15C.52 3 0 3.52 0 4.15v7.69C0 12.48.52 13 1.15 13h13.69c.64 0 1.15-.52 1.15-1.15v-7.7C16 3.52 15.48 3 14.85 3zM9 11H7V8L5.5 9.92 4 8v3H2V5h2l1.5 2L7 5h2v6zm2.99.5L9.5 8H11V5h2v3h1.5l-2.51 3.5z"></path></svg>
+                                   <span className="text-[9px] font-bold">Markdown supported</span>
+                                 </div>
+                               </div>
                                <div className="flex items-center justify-between">
                                  <button
                                    onClick={() => handleSuggestSubmit(faq.id)}

@@ -24,6 +24,21 @@ router.post('/suggest', async (req, res, next) => {
     // 2. Yaksha Gatekeeper Evaluation
     const evaluation = await evaluateAnswer(answer_text, officialAnswer, faqQuestion);
     
+    // Trust System (Tier 2 Privileges)
+    const trustRes = await query(
+      `SELECT COUNT(*) as approved_count FROM community_answers WHERE contributor_email = $1 AND yaksha_decision = 'approved'`, 
+      [contributor_email]
+    );
+    const approvedCount = parseInt(trustRes.rows[0].approved_count, 10);
+
+    let finalDecision = evaluation.decision;
+    let finalReasoning = evaluation.reasoning;
+
+    if (finalDecision === 'admin_review' && approvedCount >= 5) {
+      finalDecision = 'approved';
+      finalReasoning = `[Tier 2 Auto-Publish Privilege] Overrode Yaksha's 'admin_review' due to user trust level. Original reasoning: ${evaluation.reasoning}`;
+    }
+
     const hashId = generateHashId();
 
     // Generate a display name from email (e.g. john@example.com -> john)
@@ -34,11 +49,11 @@ router.post('/suggest', async (req, res, next) => {
       `INSERT INTO community_answers 
       (faq_id, contributor_name, contributor_email, answer_text, hash_id, yaksha_decision, yaksha_confidence, yaksha_reasoning) 
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
-      [faq_id, displayName, contributor_email, answer_text, hashId, evaluation.decision, evaluation.confidence, evaluation.reasoning]
+      [faq_id, displayName, contributor_email, answer_text, hashId, finalDecision, evaluation.confidence, finalReasoning]
     );
 
     // 4. Direct-Write Logic if Approved
-    if (evaluation.decision === 'approved') {
+    if (finalDecision === 'approved') {
       // Store old in history
       await query(
         `INSERT INTO faq_history (faq_id, previous_answer) VALUES ($1, $2)`,
@@ -54,9 +69,9 @@ router.post('/suggest', async (req, res, next) => {
 
     res.status(201).json({
       success: true,
-      decision: evaluation.decision,
+      decision: finalDecision,
       hash_id: hashId,
-      reasoning: evaluation.reasoning
+      reasoning: finalReasoning
     });
 
   } catch (error) {
