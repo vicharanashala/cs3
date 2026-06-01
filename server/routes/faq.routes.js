@@ -14,10 +14,14 @@ router.get('/', async (req, res, next) => {
     }
 
     const sql = `
-      SELECT id, question, answer, short_answer, category, risk_level, is_onboarding_faq, updated_at 
-      FROM faqs 
-      WHERE status = 'published' 
-      ORDER BY created_at DESC
+      SELECT 
+        f.id, f.question, f.answer, f.short_answer, f.category, f.risk_level, f.is_onboarding_faq, f.updated_at,
+        EXISTS (
+          SELECT 1 FROM community_answers c WHERE c.faq_id = f.id AND c.yaksha_decision = 'approved'
+        ) as community_improved
+      FROM faqs f
+      WHERE f.status = 'published' 
+      ORDER BY f.created_at DESC
     `;
     const result = await query(sql);
     const rows = result.rows;

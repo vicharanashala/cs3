@@ -279,6 +279,32 @@ export function YakshaAI() {
                 )}
               </div>
 
+              {/* Chat Feedback Buttons */}
+              {msg.role === 'assistant' && msg.content !== 'Finding the best answer for you... ✨' && msg.confidence > 0 && (
+                <div className="flex items-center space-x-3 mt-1.5 ml-1">
+                  <button 
+                    className="flex items-center space-x-1 text-xs text-gray-400 hover:text-green-600 transition group"
+                    onClick={() => {
+                      // Fire and forget feedback API call could go here
+                      alert('Thanks for the feedback! 👍');
+                    }}
+                  >
+                    <ThumbsUp className="w-3.5 h-3.5 group-hover:fill-green-600" />
+                    <span className="text-[10px] font-medium opacity-0 group-hover:opacity-100 transition-opacity">Helpful</span>
+                  </button>
+                  <button 
+                    className="flex items-center space-x-1 text-xs text-gray-400 hover:text-red-500 transition group"
+                    onClick={() => {
+                      setShowEscapeBanner(true);
+                      setFailedQueryText("I didn't find Yaksha's answer helpful.");
+                    }}
+                  >
+                    <ThumbsDown className="w-3.5 h-3.5 group-hover:fill-red-500" />
+                    <span className="text-[10px] font-medium opacity-0 group-hover:opacity-100 transition-opacity">Not Helpful</span>
+                  </button>
+                </div>
+              )}
+
               {/* Related FAQs — top 3 matches shown as clickable cards */}
               {msg.role === 'assistant' && msg.relatedFaqs?.length > 0 && (
                 <div className="mt-2 w-full max-w-[85%] space-y-1.5">

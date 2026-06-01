@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   BookOpen, X, Search, Clock, ThumbsUp, ThumbsDown, 
-  AlertTriangle, Check, ChevronDown, ChevronUp, AlertCircle 
+  AlertTriangle, Check, ChevronDown, ChevronUp, AlertCircle, Sparkles
 } from 'lucide-react';
 import { useApp } from '../store/AppContext';
 import { 
@@ -653,7 +653,7 @@ export function FAQPortal() {
                             ? 'bg-red-50 text-red-700 border-red-100' 
                             : risk === 'medium'
                             ? 'bg-amber-50 text-amber-700 border-amber-100'
-                            : 'bg-green-50 text-green-700 border-green-100'
+                            : 'bg-emerald-50 text-emerald-700 border-emerald-100'
                         }`}>
                           {risk}
                         </span>
@@ -663,6 +663,22 @@ export function FAQPortal() {
                           <span className="bg-orange-50 text-orange-700 border border-orange-100 text-[10px] px-2 py-0.5 rounded font-medium flex items-center space-x-1">
                             <AlertTriangle className="w-3 h-3 text-orange-600" />
                             <span>Stale Info</span>
+                          </span>
+                        )}
+
+                        {/* Community Improved Badge */}
+                        {faq.community_improved && (
+                          <span className="bg-blue-50 text-blue-700 border border-blue-100 text-[10px] px-2 py-0.5 rounded font-medium flex items-center space-x-1">
+                            <Sparkles className="w-3 h-3 text-blue-600" />
+                            <span>Community Improved</span>
+                          </span>
+                        )}
+                        
+                        {/* Recently Updated Badge (updated within 7 days) */}
+                        {!stale && (new Date() - new Date(faq.updated_at)) < 7 * 24 * 60 * 60 * 1000 && (
+                          <span className="bg-purple-50 text-purple-700 border border-purple-100 text-[10px] px-2 py-0.5 rounded font-medium flex items-center space-x-1">
+                            <Clock className="w-3 h-3 text-purple-600" />
+                            <span>Recently Updated</span>
                           </span>
                         )}
                       </div>
