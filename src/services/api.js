@@ -226,6 +226,26 @@ export async function getCommunityLeaderboard() {
   }
 }
 
+export async function getCommunityBounties() {
+  try {
+    const response = await api.get('/community/bounties');
+    return response.data;
+  } catch (error) {
+    console.error('API Error [getCommunityBounties]:', error);
+    throw error;
+  }
+}
+
+export async function getCommunityFeed() {
+  try {
+    const response = await api.get('/community/feed');
+    return response.data;
+  } catch (error) {
+    console.error('API Error [getCommunityFeed]:', error);
+    throw error;
+  }
+}
+
 export async function getAdminQueue(hash) {
   try {
     const params = hash ? { hash } : {};

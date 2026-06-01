@@ -1,14 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Users, Award, MessageSquare, PlusCircle } from 'lucide-react';
+import { Users, Award, MessageSquare, Target, Bot, SearchX } from 'lucide-react';
 import { useApp } from '../store/AppContext';
-import { getCommunityStats, getCommunityLeaderboard, getCommunityContributions } from '../services/api';
+import { getCommunityStats, getCommunityLeaderboard, getCommunityBounties, getCommunityFeed } from '../services/api';
 
 export function CommunityHub() {
   const { isLoading, setIsLoading } = useApp();
   const [stats, setStats] = useState({ total_contributors: 0, total_approved: 0, total_submissions: 0 });
   const [leaderboard, setLeaderboard] = useState([]);
-  const [recentContributions, setRecentContributions] = useState([]);
+  const [bounties, setBounties] = useState([]);
+  const [feed, setFeed] = useState([]);
 
   useEffect(() => {
     fetchData();
@@ -17,14 +18,16 @@ export function CommunityHub() {
   const fetchData = async () => {
     setIsLoading(true);
     try {
-      const [statsRes, lbRes, contribRes] = await Promise.all([
+      const [statsRes, lbRes, bountiesRes, feedRes] = await Promise.all([
         getCommunityStats(),
         getCommunityLeaderboard(),
-        getCommunityContributions()
+        getCommunityBounties(),
+        getCommunityFeed()
       ]);
       if (statsRes.success) setStats(statsRes.data);
       if (lbRes.success) setLeaderboard(lbRes.data);
-      if (contribRes.success) setRecentContributions(contribRes.data);
+      if (bountiesRes.success) setBounties(bountiesRes.data);
+      if (feedRes.success) setFeed(feedRes.data);
     } catch (err) {
       console.error(err);
     } finally {
@@ -40,7 +43,7 @@ export function CommunityHub() {
           Community Hub
         </h1>
         <p className="text-gray-500 dark:text-gray-400 max-w-2xl mx-auto">
-          The knowledge base is powered by students like you. Suggest edits, help others, and climb the leaderboard.
+          The knowledge base is powered by students like you. Hunt bounties, suggest edits, and climb the leaderboard.
         </p>
       </div>
 
@@ -60,6 +63,42 @@ export function CommunityHub() {
           <MessageSquare className="w-6 h-6 text-gray-400 dark:text-gray-500" />
           <span className="text-3xl font-bold text-[#111827] dark:text-white">{stats.total_submissions}</span>
           <span className="text-xs uppercase tracking-wider text-gray-500 font-semibold">Total Suggestions</span>
+        </div>
+      </div>
+
+      {/* Knowledge Bounties Section */}
+      <div className="space-y-4">
+        <div className="flex items-center space-x-2 border-b border-gray-200 dark:border-gray-800 pb-2">
+          <Target className="w-5 h-5 text-[#111827] dark:text-gray-100" />
+          <h2 className="text-lg font-bold text-[#111827] dark:text-white">
+            Knowledge Bounties
+          </h2>
+          <span className="text-[10px] bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 px-2 py-0.5 rounded font-medium">Unanswered Queries</span>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {bounties.length === 0 ? (
+            <p className="text-sm text-gray-500 italic">No open bounties at the moment.</p>
+          ) : (
+            bounties.map((bounty, i) => (
+              <div key={i} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 flex flex-col justify-between hover:border-[#111827] dark:hover:border-gray-100 transition shadow-sm group">
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded">
+                      Open Bounty
+                    </span>
+                    <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 flex items-center space-x-1">
+                      <SearchX className="w-3 h-3" />
+                      <span>{bounty.frequency} searches</span>
+                    </span>
+                  </div>
+                  <p className="font-semibold text-sm text-[#111827] dark:text-gray-100 leading-snug">"{bounty.query_text}"</p>
+                </div>
+                <button className="mt-4 w-full bg-[#111827] dark:bg-gray-100 text-white dark:text-gray-900 text-xs font-semibold py-1.5 rounded opacity-0 group-hover:opacity-100 transition disabled:opacity-50">
+                  Solve Bounty
+                </button>
+              </div>
+            ))
+          )}
         </div>
       </div>
 
@@ -88,34 +127,45 @@ export function CommunityHub() {
           </div>
         </div>
 
-        {/* Recent Contributions */}
+        {/* Yaksha Live Feed */}
         <div className="lg:col-span-2 space-y-4">
-          <h2 className="text-lg font-bold text-[#111827] dark:text-white border-b border-gray-200 dark:border-gray-800 pb-2">
-            Recent Approved Edits
-          </h2>
+          <div className="flex items-center space-x-2 border-b border-gray-200 dark:border-gray-800 pb-2">
+            <Bot className="w-5 h-5 text-[#111827] dark:text-gray-100" />
+            <h2 className="text-lg font-bold text-[#111827] dark:text-white">
+              Yaksha Live Feed
+            </h2>
+          </div>
           <div className="space-y-4">
-            {recentContributions.length === 0 ? (
-              <p className="text-sm text-gray-500 italic">No recent edits.</p>
+            {feed.length === 0 ? (
+              <p className="text-sm text-gray-500 italic">No recent activity.</p>
             ) : (
-              recentContributions.map(contrib => (
-                <div key={contrib.id} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-5 flex flex-col justify-between hover:border-[#111827] dark:hover:border-gray-100 transition shadow-sm">
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="bg-[#111827] dark:bg-gray-100 text-white dark:text-gray-900 text-[10px] font-bold uppercase tracking-wide px-2 py-1 rounded flex items-center space-x-1">
-                      <CheckCircleIcon className="w-3 h-3" />
-                      <span>Approved</span>
-                    </span>
-                    <span className="text-xs text-gray-500 font-mono">
-                      {new Date(contrib.created_at).toLocaleDateString()}
+              feed.map(item => (
+                <div key={item.id} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 flex flex-col justify-between hover:border-[#111827] dark:hover:border-gray-100 transition shadow-sm space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <span className={`text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded border ${
+                        item.yaksha_decision === 'approved' 
+                          ? 'bg-gray-100 text-[#111827] border-gray-300 dark:bg-gray-700 dark:text-white dark:border-gray-600'
+                          : item.yaksha_decision === 'admin_review'
+                          ? 'bg-gray-50 text-gray-600 border-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700'
+                          : 'bg-white text-gray-400 border-gray-100 dark:bg-gray-900 dark:border-gray-800'
+                      }`}>
+                        {item.yaksha_decision.replace('_', ' ')}
+                      </span>
+                      <span className="text-xs text-gray-500 font-semibold">
+                        @{(item.contributor_name || 'anonymous').toLowerCase()}
+                      </span>
+                    </div>
+                    <span className="text-[10px] text-gray-400 font-mono">
+                      {new Date(item.created_at).toLocaleDateString()}
                     </span>
                   </div>
-                  <h4 className="font-medium text-[#111827] dark:text-white text-sm leading-snug">{contrib.question}</h4>
-                  <p className="text-xs text-gray-600 dark:text-gray-400 mt-2 leading-relaxed">{contrib.answer_text}</p>
                   
-                  <div className="mt-4 pt-3 border-t border-gray-100 dark:border-gray-800 text-xs text-gray-500 flex justify-between items-center">
-                    <span>By <strong className="text-[#111827] dark:text-white">{contrib.contributor_name}</strong></span>
-                    {contrib.hash_id && (
-                      <span className="font-mono bg-gray-100 dark:bg-gray-900 px-1.5 py-0.5 rounded">#{contrib.hash_id}</span>
-                    )}
+                  <div className="space-y-1">
+                    <p className="text-xs text-gray-500 dark:text-gray-400 line-clamp-1">On: {item.question}</p>
+                    <div className="bg-gray-50 dark:bg-gray-900/50 p-3 rounded border border-gray-100 dark:border-gray-800 text-xs text-[#111827] dark:text-gray-300 italic">
+                      "Yaksha {item.yaksha_decision === 'approved' ? 'approved' : item.yaksha_decision === 'admin_review' ? 'queued' : 'rejected'} this edit because: {item.yaksha_reasoning || 'No specific reason provided.'}"
+                    </div>
                   </div>
                 </div>
               ))
@@ -124,16 +174,6 @@ export function CommunityHub() {
         </div>
       </div>
     </div>
-  );
-}
-
-// Simple internal icon for CheckCircle since we only imported Check from lucide in App usually
-function CheckCircleIcon(props) {
-  return (
-    <svg {...props} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-      <polyline points="22 4 12 14.01 9 11.01" />
-    </svg>
   );
 }
 

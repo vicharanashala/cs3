@@ -6,10 +6,10 @@ const router = express.Router();
 
 router.post('/suggest', async (req, res, next) => {
   try {
-    const { faq_id, answer_text, contributor_name } = req.body;
+    const { faq_id, answer_text, contributor_email } = req.body;
     
-    if (!faq_id || !answer_text) {
-      return res.status(400).json({ error: 'faq_id and answer_text are required' });
+    if (!faq_id || !answer_text || !contributor_email) {
+      return res.status(400).json({ error: 'faq_id, answer_text, and contributor_email are required' });
     }
 
     // 1. Get original FAQ
@@ -26,12 +26,15 @@ router.post('/suggest', async (req, res, next) => {
     
     const hashId = generateHashId();
 
+    // Generate a display name from email (e.g. john@example.com -> john)
+    const displayName = contributor_email.split('@')[0];
+
     // 3. Store in community_answers
     const insertRes = await query(
       `INSERT INTO community_answers 
-      (faq_id, contributor_name, answer_text, hash_id, yaksha_decision, yaksha_confidence, yaksha_reasoning) 
-      VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
-      [faq_id, contributor_name || 'Anonymous', answer_text, hashId, evaluation.decision, evaluation.confidence, evaluation.reasoning]
+      (faq_id, contributor_name, contributor_email, answer_text, hash_id, yaksha_decision, yaksha_confidence, yaksha_reasoning) 
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+      [faq_id, displayName, contributor_email, answer_text, hashId, evaluation.decision, evaluation.confidence, evaluation.reasoning]
     );
 
     // 4. Direct-Write Logic if Approved
@@ -118,6 +121,41 @@ router.get('/leaderboard', async (req, res, next) => {
       LIMIT 10
     `);
     res.json({ success: true, data: result.rows });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// GET /api/community/bounties - MVP Feature: Returns top unanswered queries for the community to solve
+router.get('/bounties', async (req, res, next) => {
+  try {
+    const sql = `
+      SELECT query_text, COUNT(*) as frequency
+      FROM search_logs
+      WHERE matched_faq_id IS NULL
+      GROUP BY query_text
+      ORDER BY frequency DESC
+      LIMIT 10;
+    `;
+    const result = await query(sql);
+    res.status(200).json({ success: true, data: result.rows });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// GET /api/community/feed - MVP Feature: Returns Yaksha's live moderation decisions and pending queue
+router.get('/feed', async (req, res, next) => {
+  try {
+    const sql = `
+      SELECT c.id, c.faq_id, c.contributor_name, c.yaksha_decision, c.yaksha_reasoning, c.created_at, f.question
+      FROM community_answers c
+      JOIN faqs f ON c.faq_id = f.id
+      ORDER BY c.created_at DESC
+      LIMIT 15;
+    `;
+    const result = await query(sql);
+    res.status(200).json({ success: true, data: result.rows });
   } catch (error) {
     next(error);
   }

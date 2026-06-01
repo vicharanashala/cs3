@@ -48,7 +48,7 @@ export function FAQPortal() {
   // Community Contributions & Suggest Answer
   const [contributions, setContributions] = useState([]);
   const [suggestFormFaqId, setSuggestFormFaqId] = useState(null);
-  const [suggestFormName, setSuggestFormName] = useState('');
+  const [suggestFormEmail, setSuggestFormEmail] = useState('');
   const [suggestFormText, setSuggestFormText] = useState('');
   const [suggestFormStatus, setSuggestFormStatus] = useState(null);
 
@@ -250,7 +250,7 @@ export function FAQPortal() {
     try {
       const res = await suggestCommunityAnswer({
         faq_id: faqId,
-        contributor_name: suggestFormName,
+        contributor_email: suggestFormEmail,
         answer_text: suggestFormText
       });
       if (res.success) {
@@ -795,10 +795,11 @@ export function FAQPortal() {
                               className="bg-gray-50 dark:bg-gray-900/50 p-3 rounded-md space-y-3 border border-gray-200 dark:border-gray-700 mt-2"
                             >
                                <input
-                                 type="text"
-                                 placeholder="Your Name (Optional)"
-                                 value={suggestFormName}
-                                 onChange={(e) => setSuggestFormName(e.target.value)}
+                                 type="email"
+                                 required
+                                 placeholder="Your Email (Required)"
+                                 value={suggestFormEmail}
+                                 onChange={(e) => setSuggestFormEmail(e.target.value)}
                                  className="w-full px-3 py-2 text-xs border border-gray-200 dark:border-gray-700 rounded focus:outline-none focus:border-[#111827] dark:focus:border-gray-100"
                                />
                                <textarea
@@ -811,7 +812,7 @@ export function FAQPortal() {
                                <div className="flex items-center justify-between">
                                  <button
                                    onClick={() => handleSuggestSubmit(faq.id)}
-                                   disabled={!suggestFormText.trim()}
+                                   disabled={!suggestFormText.trim() || !suggestFormEmail.trim() || !suggestFormEmail.includes('@')}
                                    className="bg-[#111827] dark:bg-gray-100 text-white dark:text-gray-900 text-[11px] font-semibold px-3 py-1.5 rounded hover:bg-black disabled:opacity-50 transition"
                                  >
                                    Submit Suggestion
