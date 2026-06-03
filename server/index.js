@@ -62,7 +62,7 @@ app.get('*', (req, res, next) => {
 app.use(errorHandler);
 
 // Start server listening
-app.listen(PORT, '127.0.0.1', () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`[Server] Samagama FAQ Backend listening on port ${PORT} (${process.env.NODE_ENV || 'development'} mode)`);
 });
 export default app;
