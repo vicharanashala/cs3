@@ -33,7 +33,7 @@ export function QualityMeter({ description = '', subject = '' }) {
       };
     }
     return {
-      text: "Great description! Our team will be able to help you quickly. 🎯",
+      text: "Great description! Our team will be able to help you quickly.",
       colorClass: "text-green-600 font-semibold"
     };
   };

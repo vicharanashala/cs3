@@ -3,12 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { 
-  BookOpen, X, Search, Clock, ThumbsUp, ThumbsDown, 
+import {
+  BookOpen, X, Search, Clock, ThumbsUp, ThumbsDown,
   AlertTriangle, Check, ChevronDown, ChevronUp, AlertCircle, Sparkles
 } from 'lucide-react';
 import { useApp } from '../store/AppContext';
-import { 
+import {
   getFAQs, getOnboardingFAQs, getFAQHistory, askAI, voteFAQ,
   getAdminPopular, getCommunityContributions, suggestCommunityAnswer,
   getCommunityStats, getCommunityLeaderboard
@@ -17,11 +17,11 @@ import {
 export function FAQPortal() {
   const { isLoading, setIsLoading } = useApp();
   const navigate = useNavigate();
-  
+
   // Onboarding Checklist
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [onboardingFaqs, setOnboardingFaqs] = useState([]);
-  
+
   // Search Bar
   const [searchQuery, setSearchQuery] = useState('');
   const [suggestions, setSuggestions] = useState([]);
@@ -158,10 +158,10 @@ export function FAQPortal() {
           ]);
         } else {
           // Let's filter local faqs to show standard autocomplete
-          const localFiltered = faqs.filter(faq => 
+          const localFiltered = faqs.filter(faq =>
             faq.question.toLowerCase().includes(queryText.toLowerCase())
           ).slice(0, 5).map(faq => ({ ...faq, confidence_score: 0.95 }));
-          
+
           setSuggestions(localFiltered);
           if (localFiltered.length === 0) {
             setShowYakshaPrompt(true);
@@ -171,7 +171,7 @@ export function FAQPortal() {
         }
       } catch (err) {
         // Fallback to local filtering on error
-        const localFiltered = faqs.filter(faq => 
+        const localFiltered = faqs.filter(faq =>
           faq.question.toLowerCase().includes(queryText.toLowerCase())
         ).slice(0, 5).map(faq => ({ ...faq, confidence_score: 0.9 }));
         setSuggestions(localFiltered);
@@ -257,11 +257,11 @@ export function FAQPortal() {
       });
       if (res.success) {
         if (res.decision === 'approved') {
-          setSuggestFormStatus({ status: 'success', msg: `✅ Your answer was excellent and has been immediately approved! (Hash: #${res.hash_id})` });
+          setSuggestFormStatus({ status: 'success', msg: `Your answer was excellent and has been immediately approved! (Hash: #${res.hash_id})` });
           fetchFAQs();
           fetchContributions();
         } else if (res.decision === 'admin_review') {
-          setSuggestFormStatus({ status: 'success', msg: `📋 Your answer has been sent to the admins for review. Track it with hash: #${res.hash_id}` });
+          setSuggestFormStatus({ status: 'success', msg: `Your answer has been sent to the admins for review. Track it with hash: #${res.hash_id}` });
         } else {
           setSuggestFormStatus({ status: 'error', msg: 'Your answer was marked as spam or irrelevant by our AI gatekeeper.' });
         }
@@ -286,13 +286,13 @@ export function FAQPortal() {
       {/* SECTION A: ONBOARDING CHECKLIST */}
       <AnimatePresence>
         {showOnboarding && onboardingFaqs.length > 0 && (
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
             className="overflow-hidden bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-lg p-6 relative"
           >
-            <button 
+            <button
               onClick={handleDismissOnboarding}
               className="absolute top-4 right-4 text-gray-400 hover:text-[#111827] dark:hover:text-gray-100 transition"
             >
@@ -304,10 +304,10 @@ export function FAQPortal() {
               </div>
               <h2 className="text-lg font-semibold tracking-tight">Start Here</h2>
             </div>
-            
+
             <motion.div layout className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {onboardingFaqs.map((faq) => (
-                <div 
+                <div
                   key={faq.id}
                   onClick={() => {
                     setSelectedSuggestion(faq);
@@ -353,12 +353,12 @@ export function FAQPortal() {
             </div>
           </div>
         )}
-        
+
         <div className="relative mt-6">
           <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none text-gray-400">
             <Search className="w-5 h-5" />
           </div>
-          <input 
+          <input
             type="text"
             value={searchQuery}
             onChange={(e) => {
@@ -369,18 +369,17 @@ export function FAQPortal() {
             className="w-full pl-12 pr-4 py-3.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm focus:outline-none focus:ring-1 focus:ring-[#111827] dark:focus:ring-gray-100 focus:border-[#111827] dark:focus:border-gray-100 text-sm text-[#111827] dark:text-gray-100 transition"
             disabled={isLoading}
           />
-          
+
           {/* Search suggestions dropdown */}
           <AnimatePresence>
             {showSuggestions && searchQuery && suggestions.length > 0 && (
-              <motion.div 
+              <motion.div
                 initial={{ opacity: 0, y: 4 }}
                 animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 4 }}
-                className="absolute left-0 right-0 mt-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg overflow-hidden text-left"
+                className="absolute z-50 left-0 right-0 mt-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg overflow-hidden text-left"
               >
                 {suggestions.map((item) => (
-                  <div 
+                  <div
                     key={item.id}
                     onClick={() => {
                       setSelectedSuggestion(item);
@@ -430,28 +429,37 @@ export function FAQPortal() {
           </AnimatePresence>
         </div>
 
-        {/* Selected suggestion preview panel */}
+        {/* Selected suggestion modal */}
         <AnimatePresence>
           {selectedSuggestion && (
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.98 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.98 }}
-              className="mt-4 p-5 bg-white dark:bg-gray-800 border border-[#111827] dark:border-gray-100 rounded-lg shadow-md text-left relative"
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/40 backdrop-blur-sm"
+              onClick={() => setSelectedSuggestion(null)}
             >
-              <button 
-                onClick={() => setSelectedSuggestion(null)}
-                className="absolute top-4 right-4 text-gray-400 hover:text-[#111827] dark:hover:text-gray-100 transition"
+              <motion.div
+                initial={{ scale: 0.95, y: 20 }}
+                animate={{ scale: 1, y: 0 }}
+                exit={{ scale: 0.95, y: 20 }}
+                className="bg-white dark:bg-gray-800 border border-[#111827] dark:border-gray-600 rounded-lg shadow-2xl p-6 text-left relative max-w-2xl w-full max-h-[85vh] overflow-y-auto"
+                onClick={(e) => e.stopPropagation()}
               >
-                <X className="w-4 h-4" />
-              </button>
-              <span className="bg-[#111827] dark:bg-gray-100 text-white dark:text-gray-900 text-[10px] px-2 py-0.5 rounded font-medium tracking-wide uppercase">
-                {selectedSuggestion.category || 'FAQ Result'}
-              </span>
-              <h3 className="font-bold text-base text-[#111827] dark:text-gray-100 mt-2 mb-3">{selectedSuggestion.question}</h3>
-              <p className="text-sm text-gray-600 leading-relaxed whitespace-pre-line">
-                {selectedSuggestion.answer || selectedSuggestion.short_answer}
-              </p>
+                <button
+                  onClick={() => setSelectedSuggestion(null)}
+                  className="absolute top-4 right-4 text-gray-400 hover:text-[#111827] dark:hover:text-gray-100 transition"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+                <span className="bg-[#111827] dark:bg-gray-100 text-white dark:text-gray-900 text-[10px] px-2 py-0.5 rounded font-medium tracking-wide uppercase">
+                  {selectedSuggestion.category || 'FAQ Result'}
+                </span>
+                <h3 className="font-bold text-lg text-[#111827] dark:text-gray-100 mt-3 mb-4">{selectedSuggestion.question}</h3>
+                <div className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-line">
+                  {selectedSuggestion.answer || selectedSuggestion.short_answer}
+                </div>
+              </motion.div>
             </motion.div>
           )}
         </AnimatePresence>
@@ -509,7 +517,7 @@ export function FAQPortal() {
                   }}
                   className="px-4 py-3 hover:bg-gray-50 dark:bg-gray-900/50 cursor-pointer transition border-b border-gray-100 last:border-0 flex items-start gap-3"
                 >
-                  <span className="text-gray-300 text-xs font-mono mt-0.5 w-4 shrink-0">{String(i + 2).padStart(2, '0')}</span>
+                  <span className="text-gray-400 dark:text-gray-500 font-bold text-xs font-mono mt-0.5 w-4 shrink-0">{String(i + 2).padStart(2, '0')}</span>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm text-[#111827] dark:text-gray-100 leading-snug">{faq.question}</p>
                     <p className="text-[11px] text-gray-400 mt-1">{faq.category} &middot; {Number(faq.search_count)} searches</p>
@@ -536,10 +544,10 @@ export function FAQPortal() {
                   }}
                   className="px-4 py-2.5 hover:bg-gray-50 dark:bg-gray-900/50 cursor-pointer transition border-b border-gray-100 last:border-0 flex items-start gap-3"
                 >
-                  <span className="text-gray-200 text-xs font-mono mt-0.5 w-4 shrink-0">{String(i + 5).padStart(2, '0')}</span>
+                  <span className="text-gray-400 dark:text-gray-500 font-bold text-xs font-mono mt-0.5 w-4 shrink-0">{String(i + 5).padStart(2, '0')}</span>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm text-gray-600 leading-snug">{faq.question}</p>
-                    <p className="text-[11px] text-gray-300 mt-0.5">{faq.category}</p>
+                    <p className="text-sm text-gray-600 dark:text-gray-300 leading-snug">{faq.question}</p>
+                    <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5">{faq.category}</p>
                   </div>
                 </div>
               ))}
@@ -552,20 +560,20 @@ export function FAQPortal() {
       {contributions.length > 0 && (
         <div className="space-y-4">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
-            <h2 className="text-lg font-semibold text-[#111827] dark:text-gray-100">🌟 Community Contributors</h2>
+            <h2 className="text-lg font-semibold text-[#111827] dark:text-gray-100"> Community Contributors</h2>
             <span className="text-xs text-gray-400 border-b border-gray-200 dark:border-gray-700 pb-0.5">Answers improved by the community</span>
           </div>
 
           {/* Top Contributors Leaderboard */}
           {leaderboard.length > 0 && (
-            <div className="bg-[#111827] dark:bg-gray-100 border border-gray-800 dark:border-gray-300 rounded-lg p-4 shadow-sm">
-              <h3 className="text-xs font-bold text-gray-400 dark:text-gray-600 uppercase tracking-wider mb-3">Top Contributors</h3>
+            <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 shadow-sm">
+              <h3 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">Top Contributors</h3>
               <div className="flex flex-wrap gap-3">
                 {leaderboard.slice(0, 5).map((person, i) => (
-                  <div key={i} className="flex items-center space-x-2 bg-gray-800 dark:bg-white border border-gray-700 dark:border-gray-200 rounded-full px-3 py-1.5">
+                  <div key={i} className="flex items-center space-x-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-full px-3 py-1.5">
                     <span className="text-[10px] font-bold text-gray-400 dark:text-gray-500">#{i + 1}</span>
-                    <span className="text-xs font-semibold text-white dark:text-gray-900">{person.contributor_name}</span>
-                    <span className="text-[10px] text-gray-400 bg-gray-900 dark:bg-gray-100 px-1.5 py-0.5 rounded-full">{person.approved_count} answers</span>
+                    <span className="text-xs font-semibold text-[#111827] dark:text-gray-100">{person.contributor_name}</span>
+                    <span className="text-[10px] text-gray-500 bg-white dark:bg-gray-800 px-1.5 py-0.5 rounded-full">{person.approved_count} answers</span>
                   </div>
                 ))}
               </div>
@@ -585,10 +593,10 @@ export function FAQPortal() {
                     )}
                   </div>
                   <h4 className="font-medium text-[#111827] dark:text-gray-100 text-sm mt-3 leading-snug line-clamp-2">{contrib.question}</h4>
-                  <p className="text-xs text-gray-600 mt-2 line-clamp-2 leading-relaxed">{contrib.answer_text}</p>
+                  <p className="text-xs text-gray-600 dark:text-gray-400 mt-2 line-clamp-2 leading-relaxed">{contrib.answer_text}</p>
                 </div>
                 <div className="mt-4 pt-3 border-t border-gray-100 flex items-center justify-between text-[10px] text-gray-400">
-                  <span>Suggested by <strong className="text-gray-700">{contrib.contributor_name}</strong></span>
+                  <span>Suggested by <strong className="text-gray-700 dark:text-gray-300">{contrib.contributor_name}</strong></span>
                   <span>{new Date(contrib.created_at).toLocaleDateString()}</span>
                 </div>
               </div>
@@ -608,18 +616,17 @@ export function FAQPortal() {
 
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
           {/* LEFT SIDEBAR: Category filters */}
-          <div className="lg:col-span-1 space-y-4">
+          <div className="lg:col-span-1 space-y-4 sticky top-24 self-start">
             <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400">Browse by Category</h3>
             <div className="flex flex-wrap lg:flex-col gap-2">
               {categories.map((cat) => (
                 <button
                   key={cat}
                   onClick={() => setSelectedCategory(cat)}
-                  className={`text-left px-3 py-2 text-xs rounded-md transition font-medium border ${
-                    selectedCategory === cat
+                  className={`text-left px-3 py-2 text-xs rounded-md transition font-medium border ${selectedCategory === cat
                       ? 'bg-[#111827] dark:bg-gray-100 text-white dark:text-gray-900 border-[#111827] dark:border-gray-100'
-                      : 'bg-white dark:bg-gray-800 text-gray-600 border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:bg-gray-900/50'
-                  }`}
+                      : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:bg-gray-900/50'
+                    }`}
                 >
                   {cat}
                 </button>
@@ -637,7 +644,7 @@ export function FAQPortal() {
                 const stale = isStale(faq.updated_at);
 
                 return (
-                  <motion.div 
+                  <motion.div
                     layout="position"
                     key={faq.id}
                     className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:border-gray-300 rounded-lg p-5 shadow-sm space-y-4 transition flex flex-col justify-between"
@@ -648,7 +655,7 @@ export function FAQPortal() {
                         <span className="bg-gray-100 dark:bg-gray-800 text-gray-600 text-[10px] px-2 py-0.5 rounded font-medium">
                           {faq.category}
                         </span>
-                        
+
                         {/* Risk level badge */}
                         <span className="text-[10px] px-2 py-0.5 rounded font-semibold border bg-gray-50 dark:bg-gray-900 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700">
                           {risk} risk
@@ -669,7 +676,7 @@ export function FAQPortal() {
                             <span>Community Improved</span>
                           </span>
                         )}
-                        
+
                         {/* Recently Updated Badge (updated within 7 days) */}
                         {!stale && (new Date() - new Date(faq.updated_at)) < 7 * 24 * 60 * 60 * 1000 && (
                           <span className="bg-gray-100 dark:bg-gray-700 text-[#111827] dark:text-gray-100 border border-gray-200 dark:border-gray-600 text-[10px] px-2 py-0.5 rounded font-medium flex items-center space-x-1">
@@ -681,7 +688,7 @@ export function FAQPortal() {
 
                       {/* Question */}
                       <h4 className="font-medium text-[#111827] dark:text-gray-100 text-sm leading-snug">{faq.question}</h4>
-                      
+
                       {/* Short summary always shown */}
                       {faq.short_answer && !isExpanded && (
                         <p className="text-xs text-gray-500 dark:text-gray-400 line-clamp-2 leading-relaxed">{faq.short_answer}</p>
@@ -690,7 +697,7 @@ export function FAQPortal() {
                       {/* Full Answer expanded */}
                       <AnimatePresence>
                         {isExpanded && (
-                          <motion.div 
+                          <motion.div
                             initial={{ opacity: 0, height: 0 }}
                             animate={{ opacity: 1, height: 'auto' }}
                             exit={{ opacity: 0, height: 0 }}
@@ -710,7 +717,7 @@ export function FAQPortal() {
                     <div className="border-t border-gray-100 pt-4 flex flex-col space-y-3">
                       <div className="flex justify-between items-center text-xs text-gray-400">
                         {/* Expand answer toggle */}
-                        <button 
+                        <button
                           onClick={() => setExpandedFaqId(isExpanded ? null : faq.id)}
                           className="text-[#111827] dark:text-gray-100 hover:underline font-semibold flex items-center space-x-1"
                         >
@@ -732,7 +739,7 @@ export function FAQPortal() {
                       {/* Feedback row */}
                       <div className="bg-gray-50 dark:bg-gray-900/50 p-2 rounded flex justify-between items-center">
                         <span className="text-[11px] text-gray-500 dark:text-gray-400 font-medium">Was this helpful?</span>
-                        
+
                         <div className="flex items-center space-x-1 relative">
                           {status === 'upvoted' ? (
                             <span className="text-green-600 text-[11px] font-semibold flex items-center space-x-1 px-2 py-1 bg-green-50 rounded border border-green-200">
@@ -757,14 +764,14 @@ export function FAQPortal() {
                             </div>
                           ) : (
                             <div className="flex items-center space-x-1">
-                              <button 
+                              <button
                                 onClick={() => handleVoteUp(faq.id)}
                                 className="p-1 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded transition"
                                 title="Helpful"
                               >
                                 <ThumbsUp className="w-4 h-4" />
                               </button>
-                              <button 
+                              <button
                                 onClick={() => handleVoteDownTrigger(faq.id)}
                                 className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition"
                                 title="Not Helpful"
@@ -780,18 +787,18 @@ export function FAQPortal() {
                       <div className="pt-2 border-t border-gray-100 flex flex-col space-y-2">
                         <button
                           onClick={() => {
-                             if (suggestFormFaqId === faq.id) setSuggestFormFaqId(null);
-                             else { 
-                               setSuggestFormFaqId(faq.id); 
-                               setSuggestFormStatus(null); 
-                               setSuggestFormText(''); 
-                             }
+                            if (suggestFormFaqId === faq.id) setSuggestFormFaqId(null);
+                            else {
+                              setSuggestFormFaqId(faq.id);
+                              setSuggestFormStatus(null);
+                              setSuggestFormText('');
+                            }
                           }}
                           className="text-[11px] text-gray-500 dark:text-gray-400 hover:text-[#111827] dark:hover:text-gray-100 font-semibold text-left underline w-fit"
                         >
                           Suggest better answer
                         </button>
-                        
+
                         <AnimatePresence>
                           {suggestFormFaqId === faq.id && (
                             <motion.div
@@ -800,41 +807,41 @@ export function FAQPortal() {
                               exit={{ opacity: 0, height: 0 }}
                               className="bg-gray-50 dark:bg-gray-900/50 p-3 rounded-md space-y-3 border border-gray-200 dark:border-gray-700 mt-2"
                             >
-                               <input
-                                 type="email"
-                                 required
-                                 placeholder="Your Email (Required)"
-                                 value={suggestFormEmail}
-                                 onChange={(e) => setSuggestFormEmail(e.target.value)}
-                                 className="w-full px-3 py-2 text-xs border border-gray-200 dark:border-gray-700 rounded focus:outline-none focus:border-[#111827] dark:focus:border-gray-100"
-                               />
-                               <div className="relative">
-                                 <textarea
-                                   placeholder="What's a better or more complete answer?"
-                                   value={suggestFormText}
-                                   onChange={(e) => setSuggestFormText(e.target.value)}
-                                   rows={3}
-                                   className="w-full px-3 py-2 pb-6 text-xs border border-gray-200 dark:border-gray-700 rounded focus:outline-none focus:border-[#111827] dark:focus:border-gray-100"
-                                 />
-                                 <div className="absolute bottom-1 right-2 flex items-center space-x-1 opacity-50">
-                                   <svg viewBox="0 0 16 16" width="12" height="12" fill="currentColor"><path d="M14.85 3H1.15C.52 3 0 3.52 0 4.15v7.69C0 12.48.52 13 1.15 13h13.69c.64 0 1.15-.52 1.15-1.15v-7.7C16 3.52 15.48 3 14.85 3zM9 11H7V8L5.5 9.92 4 8v3H2V5h2l1.5 2L7 5h2v6zm2.99.5L9.5 8H11V5h2v3h1.5l-2.51 3.5z"></path></svg>
-                                   <span className="text-[9px] font-bold">Markdown supported</span>
-                                 </div>
-                               </div>
-                               <div className="flex items-center justify-between">
-                                 <button
-                                   onClick={() => handleSuggestSubmit(faq.id)}
-                                   disabled={!suggestFormText.trim() || !suggestFormEmail.trim() || !suggestFormEmail.includes('@')}
-                                   className="bg-[#111827] dark:bg-gray-100 text-white dark:text-gray-900 text-[11px] font-semibold px-3 py-1.5 rounded hover:bg-black disabled:opacity-50 transition"
-                                 >
-                                   Submit Suggestion
-                                 </button>
-                               </div>
-                               {suggestFormStatus && (
-                                 <p className={`text-[10px] mt-2 font-medium ${suggestFormStatus.status === 'success' ? 'text-green-600' : 'text-red-600'}`}>
-                                   {suggestFormStatus.msg}
-                                 </p>
-                               )}
+                              <input
+                                type="email"
+                                required
+                                placeholder="Your Email (Required)"
+                                value={suggestFormEmail}
+                                onChange={(e) => setSuggestFormEmail(e.target.value)}
+                                className="w-full px-3 py-2 text-xs border border-gray-200 dark:border-gray-700 rounded focus:outline-none focus:border-[#111827] dark:focus:border-gray-100"
+                              />
+                              <div className="relative">
+                                <textarea
+                                  placeholder="What's a better or more complete answer?"
+                                  value={suggestFormText}
+                                  onChange={(e) => setSuggestFormText(e.target.value)}
+                                  rows={3}
+                                  className="w-full px-3 py-2 pb-6 text-xs border border-gray-200 dark:border-gray-700 rounded focus:outline-none focus:border-[#111827] dark:focus:border-gray-100"
+                                />
+                                <div className="absolute bottom-1 right-2 flex items-center space-x-1 opacity-50">
+                                  <svg viewBox="0 0 16 16" width="12" height="12" fill="currentColor"><path d="M14.85 3H1.15C.52 3 0 3.52 0 4.15v7.69C0 12.48.52 13 1.15 13h13.69c.64 0 1.15-.52 1.15-1.15v-7.7C16 3.52 15.48 3 14.85 3zM9 11H7V8L5.5 9.92 4 8v3H2V5h2l1.5 2L7 5h2v6zm2.99.5L9.5 8H11V5h2v3h1.5l-2.51 3.5z"></path></svg>
+                                  <span className="text-[9px] font-bold">Markdown supported</span>
+                                </div>
+                              </div>
+                              <div className="flex items-center justify-between">
+                                <button
+                                  onClick={() => handleSuggestSubmit(faq.id)}
+                                  disabled={!suggestFormText.trim() || !suggestFormEmail.trim() || !suggestFormEmail.includes('@')}
+                                  className="bg-[#111827] dark:bg-gray-100 text-white dark:text-gray-900 text-[11px] font-semibold px-3 py-1.5 rounded hover:bg-black disabled:opacity-50 transition"
+                                >
+                                  Submit Suggestion
+                                </button>
+                              </div>
+                              {suggestFormStatus && (
+                                <p className={`text-[10px] mt-2 font-medium ${suggestFormStatus.status === 'success' ? 'text-green-600' : 'text-red-600'}`}>
+                                  {suggestFormStatus.msg}
+                                </p>
+                              )}
                             </motion.div>
                           )}
                         </AnimatePresence>
@@ -851,13 +858,13 @@ export function FAQPortal() {
       {/* VERSION HISTORY MODAL */}
       <AnimatePresence>
         {historyModalFaq && (
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-50 bg-black/30 backdrop-blur-xs flex items-center justify-center p-4"
           >
-            <motion.div 
+            <motion.div
               initial={{ scale: 0.95, y: 15 }}
               animate={{ scale: 1, y: 0 }}
               exit={{ scale: 0.95, y: 15 }}
@@ -869,7 +876,7 @@ export function FAQPortal() {
                   <h3 className="font-bold text-lg text-[#111827] dark:text-gray-100">Version Changelog</h3>
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 line-clamp-1">{historyModalFaq.question}</p>
                 </div>
-                <button 
+                <button
                   onClick={() => setHistoryModalFaq(null)}
                   className="p-1 text-gray-400 hover:text-[#111827] dark:hover:text-gray-100 rounded transition"
                 >
@@ -893,7 +900,7 @@ export function FAQPortal() {
                       <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">
                         Revision dated: {new Date(hist.changed_at).toLocaleString()}
                       </p>
-                      
+
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {/* Previous */}
                         <div className="bg-[#FFF5F5] border border-red-100 rounded-md p-4 flex flex-col justify-between">

@@ -155,5 +155,29 @@ router.delete('/community/:hash', adminAuth, async (req, res, next) => {
     next(error);
   }
 });
+// GET /api/admin/queries - Get all support queries
+router.get('/queries', adminAuth, async (req, res, next) => {
+  try {
+    const sql = `SELECT * FROM queries ORDER BY created_at DESC`;
+    const result = await query(sql);
+    res.status(200).json({ success: true, data: result.rows });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// PATCH /api/admin/queries/:id/public - Toggle public visibility for a query
+router.patch('/queries/:id/public', adminAuth, async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { is_public } = req.body;
+    const sql = `UPDATE queries SET is_public = $1, updated_at = NOW() WHERE id = $2 RETURNING *`;
+    const result = await query(sql, [is_public, id]);
+    if (result.rows.length === 0) return res.status(404).json({ error: 'Not found' });
+    res.json({ success: true, data: result.rows[0] });
+  } catch (error) {
+    next(error);
+  }
+});
 
 export default router;

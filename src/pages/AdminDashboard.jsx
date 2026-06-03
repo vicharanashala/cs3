@@ -7,7 +7,8 @@ import {
 import { useApp } from '../store/AppContext';
 import { 
   getAdminHeatmap, getAdminGaps, getAdminRageSessions, createFAQ,
-  getAdminQueue, adminReviewQueueItem, adminDeleteCommunityHash
+  getAdminQueue, adminReviewQueueItem, adminDeleteCommunityHash,
+  getAdminQueries, toggleQueryPublic
 } from '../services/api';
 
 export function AdminDashboard() {
@@ -27,6 +28,7 @@ export function AdminDashboard() {
   const [queueItems, setQueueItems] = useState([]);
   const [hashSearch, setHashSearch] = useState('');
   const [queueLoading, setQueueLoading] = useState(false);
+  const [adminQueries, setAdminQueries] = useState([]);
 
   // Modal and Toast states
   const [draftFaq, setDraftFaq] = useState(null);
@@ -67,15 +69,17 @@ export function AdminDashboard() {
     setIsLoading(true);
     setAuthError('');
     try {
-      const [heatmapRes, gapsRes, rageRes] = await Promise.all([
+      const [heatmapRes, gapsRes, rageRes, queriesRes] = await Promise.all([
         getAdminHeatmap(),
         getAdminGaps(),
-        getAdminRageSessions()
+        getAdminRageSessions(),
+        getAdminQueries()
       ]);
 
       if (heatmapRes.success) setHeatmapData(heatmapRes.data);
       if (gapsRes.success) setGapsData(gapsRes.data);
       if (rageRes.success) setRageSessions(rageRes.data);
+      if (queriesRes && queriesRes.success) setAdminQueries(queriesRes.data);
     } catch (err) {
       console.error(err);
       setAuthError('Unauthorized or invalid admin key.');
@@ -117,6 +121,17 @@ export function AdminDashboard() {
       fetchQueue(hashSearch || undefined);
     } catch (err) {
       showToast('Delete failed.');
+    }
+  };
+
+  const handleTogglePublic = async (id, currentStatus) => {
+    try {
+      await toggleQueryPublic(id, !currentStatus);
+      showToast(!currentStatus ? 'Query is now visible to community' : 'Query hidden from community');
+      const queriesRes = await getAdminQueries();
+      if (queriesRes.success) setAdminQueries(queriesRes.data);
+    } catch (err) {
+      showToast('Action failed.');
     }
   };
 
@@ -517,7 +532,7 @@ export function AdminDashboard() {
                 value={hashSearch}
                 onChange={(e) => setHashSearch(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && fetchQueue(hashSearch)}
-                className="pl-8 pr-3 py-1.5 text-xs border border-gray-200 dark:border-gray-700 rounded-md focus:outline-none focus:ring-1 focus:ring-[#111827] dark:focus:ring-gray-100 w-40"
+                className="pl-8 pr-3 py-1.5 text-xs bg-white dark:bg-gray-800 text-[#111827] dark:text-gray-100 border border-gray-200 dark:border-gray-700 rounded-md focus:outline-none focus:ring-1 focus:ring-[#111827] dark:focus:ring-gray-100 w-40"
               />
             </div>
             <button
@@ -610,6 +625,53 @@ export function AdminDashboard() {
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
                   </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* SECTION 5: SUPPORT COMPLAINTS QUEUE */}
+      <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6 shadow-sm space-y-4">
+        <div className="flex items-center space-x-2 border-b border-gray-100 pb-3">
+          <AlertTriangle className="w-4 h-4 text-[#111827] dark:text-gray-100" />
+          <h3 className="text-sm font-bold uppercase tracking-tight text-gray-500 dark:text-gray-400">Support Complaints</h3>
+        </div>
+
+        {adminQueries.length === 0 ? (
+          <p className="text-xs text-gray-400 py-4 text-center">No complaints filed.</p>
+        ) : (
+          <div className="space-y-3">
+            {adminQueries.map(item => (
+              <div key={item.id} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 space-y-3 bg-white dark:bg-gray-900/50">
+                <div className="flex items-start justify-between">
+                  <div className="space-y-1">
+                    <span className="text-[10px] bg-gray-100 dark:bg-gray-800 text-gray-600 px-2 py-0.5 rounded uppercase font-bold tracking-wider">
+                      {item.status}
+                    </span>
+                    <h4 className="text-sm font-bold text-[#111827] dark:text-gray-100 mt-1">{item.subject}</h4>
+                    {item.email && <p className="text-[10px] text-gray-400">From: {item.email}</p>}
+                  </div>
+                  <span className="text-[10px] text-gray-400 shrink-0">{new Date(item.created_at).toLocaleDateString()}</span>
+                </div>
+                
+                <div className="bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded p-3">
+                  <p className="text-xs text-gray-600 dark:text-gray-300 leading-relaxed whitespace-pre-line">{item.description}</p>
+                </div>
+
+                <div className="pt-2 border-t border-gray-100 flex items-center justify-between">
+                  <span className="text-[10px] text-gray-500 font-medium">Community Visibility: {item.is_public ? 'Public' : 'Hidden'}</span>
+                  <button
+                    onClick={() => handleTogglePublic(item.id, item.is_public)}
+                    className={`text-[10px] font-bold px-3 py-1.5 rounded transition ${
+                      item.is_public 
+                        ? 'bg-red-50 text-red-600 hover:bg-red-100 border border-red-200' 
+                        : 'bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-200'
+                    }`}
+                  >
+                    {item.is_public ? 'Hide from Community' : 'Publish to Community'}
+                  </button>
                 </div>
               </div>
             ))}

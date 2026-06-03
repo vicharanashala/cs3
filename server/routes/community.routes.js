@@ -6,23 +6,31 @@ const router = express.Router();
 
 router.post('/suggest', async (req, res, next) => {
   try {
-    const { faq_id, answer_text, contributor_email } = req.body;
+    const { faq_id, query_id, answer_text, contributor_email } = req.body;
     
-    if (!faq_id || !answer_text || !contributor_email) {
-      return res.status(400).json({ error: 'faq_id, answer_text, and contributor_email are required' });
+    if ((!faq_id && !query_id) || !answer_text || !contributor_email) {
+      return res.status(400).json({ error: 'faq_id or query_id, answer_text, and contributor_email are required' });
     }
 
-    // 1. Get original FAQ
-    const faqRes = await query('SELECT question, answer FROM faqs WHERE id = $1', [faq_id]);
-    if (faqRes.rows.length === 0) {
-      return res.status(404).json({ error: 'FAQ not found' });
+    let officialAnswer = null;
+    let targetQuestion = null;
+    let isQuery = false;
+
+    if (faq_id) {
+      const faqRes = await query('SELECT question, answer FROM faqs WHERE id = $1', [faq_id]);
+      if (faqRes.rows.length === 0) return res.status(404).json({ error: 'FAQ not found' });
+      officialAnswer = faqRes.rows[0].answer;
+      targetQuestion = faqRes.rows[0].question;
+    } else if (query_id) {
+      const queryRes = await query('SELECT subject, description FROM queries WHERE id = $1', [query_id]);
+      if (queryRes.rows.length === 0) return res.status(404).json({ error: 'Query not found' });
+      officialAnswer = queryRes.rows[0].description; // Give context to AI
+      targetQuestion = queryRes.rows[0].subject;
+      isQuery = true;
     }
-    
-    const officialAnswer = faqRes.rows[0].answer;
-    const faqQuestion = faqRes.rows[0].question;
 
     // 2. Yaksha Gatekeeper Evaluation
-    const evaluation = await evaluateAnswer(answer_text, officialAnswer, faqQuestion);
+    const evaluation = await evaluateAnswer(answer_text, officialAnswer, targetQuestion, isQuery);
     
     // Trust System (Tier 2 Privileges)
     const trustRes = await query(
@@ -47,24 +55,33 @@ router.post('/suggest', async (req, res, next) => {
     // 3. Store in community_answers
     const insertRes = await query(
       `INSERT INTO community_answers 
-      (faq_id, contributor_name, contributor_email, answer_text, hash_id, yaksha_decision, yaksha_confidence, yaksha_reasoning) 
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
-      [faq_id, displayName, contributor_email, answer_text, hashId, finalDecision, evaluation.confidence, finalReasoning]
+      (faq_id, query_id, contributor_name, contributor_email, answer_text, hash_id, yaksha_decision, yaksha_confidence, yaksha_reasoning) 
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
+      [faq_id || null, query_id || null, displayName, contributor_email, answer_text, hashId, finalDecision, evaluation.confidence, finalReasoning]
     );
 
     // 4. Direct-Write Logic if Approved
     if (finalDecision === 'approved') {
-      // Store old in history
-      await query(
-        `INSERT INTO faq_history (faq_id, previous_answer) VALUES ($1, $2)`,
-        [faq_id, officialAnswer]
-      );
-      
-      // Update FAQ
-      await query(
-        `UPDATE faqs SET answer = $1, short_answer = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2`,
-        [answer_text, faq_id]
-      );
+      if (faq_id) {
+        // Store old in history
+        await query(
+          `INSERT INTO faq_history (faq_id, previous_answer) VALUES ($1, $2)`,
+          [faq_id, officialAnswer]
+        );
+        
+        // Update FAQ
+        await query(
+          `UPDATE faqs SET answer = $1, short_answer = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2`,
+          [answer_text, faq_id]
+        );
+      } else if (query_id) {
+        // If it's a query, we could auto-convert it to an FAQ or just mark it closed.
+        // Let's close the query since it was successfully answered by the community.
+        await query(
+          `UPDATE queries SET status = 'closed', updated_at = CURRENT_TIMESTAMP WHERE id = $1`,
+          [query_id]
+        );
+      }
     }
 
     res.status(201).json({
@@ -190,6 +207,22 @@ router.get('/feed', async (req, res, next) => {
       JOIN faqs f ON c.faq_id = f.id
       ORDER BY c.created_at DESC
       LIMIT 15;
+    `;
+    const result = await query(sql);
+    res.status(200).json({ success: true, data: result.rows });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// GET /api/community/queries - Returns public open queries for the community to solve
+router.get('/queries', async (req, res, next) => {
+  try {
+    const sql = `
+      SELECT id, subject, description, created_at
+      FROM queries
+      WHERE is_public = true AND status != 'closed'
+      ORDER BY created_at DESC;
     `;
     const result = await query(sql);
     res.status(200).json({ success: true, data: result.rows });

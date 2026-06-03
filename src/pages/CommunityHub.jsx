@@ -2,18 +2,24 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Users, Award, MessageSquare, Target, Bot, SearchX, Hash } from 'lucide-react';
 import { useApp } from '../store/AppContext';
-import { getCommunityStats, getCommunityLeaderboard, getCommunityBounties, getCommunityFeed, checkCommunitySuggestionStatus } from '../services/api';
+import { getCommunityStats, getCommunityLeaderboard, getCommunityBounties, getCommunityQueries, checkCommunitySuggestionStatus, suggestCommunityAnswer } from '../services/api';
 
 export function CommunityHub() {
   const { isLoading, setIsLoading } = useApp();
   const [stats, setStats] = useState({ total_contributors: 0, total_approved: 0, total_submissions: 0 });
   const [leaderboard, setLeaderboard] = useState([]);
   const [bounties, setBounties] = useState([]);
-  const [feed, setFeed] = useState([]);
+  const [communityQueries, setCommunityQueries] = useState([]);
   
   const [trackHash, setTrackHash] = useState('');
   const [trackResult, setTrackResult] = useState(null);
   const [isTracking, setIsTracking] = useState(false);
+
+  // Form states for answering queries
+  const [suggestFormQueryId, setSuggestFormQueryId] = useState(null);
+  const [suggestFormText, setSuggestFormText] = useState('');
+  const [suggestFormEmail, setSuggestFormEmail] = useState('');
+  const [suggestFormStatus, setSuggestFormStatus] = useState(null);
 
   useEffect(() => {
     fetchData();
@@ -22,16 +28,16 @@ export function CommunityHub() {
   const fetchData = async () => {
     setIsLoading(true);
     try {
-      const [statsRes, lbRes, bountiesRes, feedRes] = await Promise.all([
+      const [statsRes, lbRes, bountiesRes, queriesRes] = await Promise.all([
         getCommunityStats(),
         getCommunityLeaderboard(),
         getCommunityBounties(),
-        getCommunityFeed()
+        getCommunityQueries()
       ]);
       if (statsRes.success) setStats(statsRes.data);
       if (lbRes.success) setLeaderboard(lbRes.data);
       if (bountiesRes.success) setBounties(bountiesRes.data);
-      if (feedRes.success) setFeed(feedRes.data);
+      if (queriesRes.success) setCommunityQueries(queriesRes.data);
     } catch (err) {
       console.error(err);
     } finally {
@@ -51,6 +57,32 @@ export function CommunityHub() {
       setTrackResult({ error: 'Suggestion not found or invalid hash.' });
     } finally {
       setIsTracking(false);
+    }
+  };
+
+  const handleSuggestSubmit = async (queryId) => {
+    setSuggestFormStatus({ status: 'pending', msg: 'Submitting and verifying with Yaksha...' });
+    try {
+      const res = await suggestCommunityAnswer({
+        query_id: queryId,
+        answer_text: suggestFormText,
+        contributor_email: suggestFormEmail
+      });
+      if (res.success) {
+        if (res.decision === 'approved') {
+          setSuggestFormStatus({ status: 'success', msg: `Your answer was excellent and has been immediately approved! (Hash: #${res.hash_id})` });
+          fetchData(); // Refresh the list
+        } else if (res.decision === 'admin_review') {
+          setSuggestFormStatus({ status: 'success', msg: `Your answer has been sent to the admins for review. Track it with hash: #${res.hash_id}` });
+        } else {
+          setSuggestFormStatus({ status: 'error', msg: 'Your answer was marked as spam or irrelevant by our AI gatekeeper.' });
+        }
+      } else {
+        setSuggestFormStatus({ status: 'error', msg: res.error || 'Failed to submit.' });
+      }
+    } catch (err) {
+      console.error(err);
+      setSuggestFormStatus({ status: 'error', msg: err?.response?.data?.error || err?.response?.data?.message || err.message || 'An error occurred during submission.' });
     }
   };
 
@@ -207,45 +239,95 @@ export function CommunityHub() {
           </div>
         </div>
 
-        {/* Yaksha Live Feed */}
+        {/* Open Community Issues */}
         <div className="lg:col-span-2 space-y-4">
           <div className="flex items-center space-x-2 border-b border-gray-200 dark:border-gray-800 pb-2">
-            <Bot className="w-5 h-5 text-[#111827] dark:text-gray-100" />
+            <MessageSquare className="w-5 h-5 text-[#111827] dark:text-gray-100" />
             <h2 className="text-lg font-bold text-[#111827] dark:text-white">
-              Yaksha Live Feed
+              Open Community Issues
             </h2>
           </div>
           <div className="space-y-4">
-            {feed.length === 0 ? (
-              <p className="text-sm text-gray-500 italic">No recent activity.</p>
+            {communityQueries.length === 0 ? (
+              <p className="text-sm text-gray-500 italic">No open community issues right now.</p>
             ) : (
-              feed.map(item => (
+              communityQueries.map(item => (
                 <div key={item.id} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 flex flex-col justify-between hover:border-[#111827] dark:hover:border-gray-100 transition shadow-sm space-y-3">
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-2">
-                      <span className={`text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded border ${
-                        item.yaksha_decision === 'approved' 
-                          ? 'bg-gray-100 text-[#111827] border-gray-300 dark:bg-gray-700 dark:text-white dark:border-gray-600'
-                          : item.yaksha_decision === 'admin_review'
-                          ? 'bg-gray-50 text-gray-600 border-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700'
-                          : 'bg-white text-gray-400 border-gray-100 dark:bg-gray-900 dark:border-gray-800'
-                      }`}>
-                        {item.yaksha_decision.replace('_', ' ')}
-                      </span>
-                      <span className="text-xs text-gray-500 font-semibold">
-                        @{(item.contributor_name || 'anonymous').toLowerCase()}
-                      </span>
-                    </div>
+                    <span className="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded border bg-blue-50 text-blue-600 border-blue-200">
+                      Community Help Needed
+                    </span>
                     <span className="text-[10px] text-gray-400 font-mono">
                       {new Date(item.created_at).toLocaleDateString()}
                     </span>
                   </div>
                   
-                  <div className="space-y-1">
-                    <p className="text-xs text-gray-500 dark:text-gray-400 line-clamp-1">On: {item.question}</p>
-                    <div className="bg-gray-50 dark:bg-gray-900/50 p-3 rounded border border-gray-100 dark:border-gray-800 text-xs text-[#111827] dark:text-gray-300 italic">
-                      "Yaksha {item.yaksha_decision === 'approved' ? 'approved' : item.yaksha_decision === 'admin_review' ? 'queued' : 'rejected'} this edit because: {item.yaksha_reasoning || 'No specific reason provided.'}"
-                    </div>
+                  <div className="space-y-2">
+                    <h4 className="text-sm font-bold text-[#111827] dark:text-gray-100">{item.subject}</h4>
+                    <p className="text-xs text-gray-600 dark:text-gray-300 line-clamp-3 leading-relaxed whitespace-pre-line">{item.description}</p>
+                  </div>
+
+                  <div className="pt-2 border-t border-gray-100 dark:border-gray-700 mt-2">
+                    <button
+                      onClick={() => {
+                        if (suggestFormQueryId === item.id) setSuggestFormQueryId(null);
+                        else {
+                          setSuggestFormQueryId(item.id);
+                          setSuggestFormStatus(null);
+                          setSuggestFormText('');
+                        }
+                      }}
+                      className="text-[11px] text-gray-500 dark:text-gray-400 hover:text-[#111827] dark:hover:text-gray-100 font-semibold text-left underline w-fit"
+                    >
+                      {suggestFormQueryId === item.id ? 'Cancel Suggestion' : 'Suggest an Answer'}
+                    </button>
+                    
+                    <AnimatePresence>
+                      {suggestFormQueryId === item.id && (
+                        <motion.div
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: 'auto' }}
+                          exit={{ opacity: 0, height: 0 }}
+                          className="bg-gray-50 dark:bg-gray-900/50 p-3 rounded-md space-y-3 border border-gray-200 dark:border-gray-700 mt-2"
+                        >
+                          <input
+                            type="email"
+                            required
+                            placeholder="Your Email (Required for points)"
+                            value={suggestFormEmail}
+                            onChange={(e) => setSuggestFormEmail(e.target.value)}
+                            className="w-full px-3 py-2 text-xs border border-gray-200 dark:border-gray-700 rounded focus:outline-none focus:border-[#111827] dark:focus:border-gray-100 bg-white dark:bg-gray-800 text-[#111827] dark:text-gray-100"
+                          />
+                          <div className="relative">
+                            <textarea
+                              placeholder="Type your answer here..."
+                              value={suggestFormText}
+                              onChange={(e) => setSuggestFormText(e.target.value)}
+                              rows={3}
+                              className="w-full px-3 py-2 pb-6 text-xs border border-gray-200 dark:border-gray-700 rounded focus:outline-none focus:border-[#111827] dark:focus:border-gray-100 bg-white dark:bg-gray-800 text-[#111827] dark:text-gray-100"
+                            />
+                            <div className="absolute bottom-1 right-2 flex items-center space-x-1 opacity-50">
+                              <svg viewBox="0 0 16 16" width="12" height="12" fill="currentColor"><path d="M14.85 3H1.15C.52 3 0 3.52 0 4.15v7.69C0 12.48.52 13 1.15 13h13.69c.64 0 1.15-.52 1.15-1.15v-7.7C16 3.52 15.48 3 14.85 3zM9 11H7V8L5.5 9.92 4 8v3H2V5h2l1.5 2L7 5h2v6zm2.99.5L9.5 8H11V5h2v3h1.5l-2.51 3.5z"></path></svg>
+                              <span className="text-[9px] font-bold">Markdown supported</span>
+                            </div>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <button
+                              onClick={() => handleSuggestSubmit(item.id)}
+                              disabled={!suggestFormText.trim() || !suggestFormEmail.trim() || !suggestFormEmail.includes('@') || suggestFormStatus?.status === 'pending'}
+                              className="bg-[#111827] dark:bg-gray-100 text-white dark:text-gray-900 text-[11px] font-semibold px-3 py-1.5 rounded hover:bg-black disabled:opacity-50 transition"
+                            >
+                              {suggestFormStatus?.status === 'pending' ? 'Submitting...' : 'Submit Answer'}
+                            </button>
+                          </div>
+                          {suggestFormStatus && (
+                            <p className={`text-[10px] mt-2 font-medium ${suggestFormStatus.status === 'success' ? 'text-green-600' : 'text-red-600'}`}>
+                              {suggestFormStatus.msg}
+                            </p>
+                          )}
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                   </div>
                 </div>
               ))

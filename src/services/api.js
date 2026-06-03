@@ -287,6 +287,36 @@ export async function adminDeleteCommunityHash(hash) {
   }
 }
 
+export async function getAdminQueries() {
+  try {
+    const response = await api.get('/admin/queries');
+    return response.data;
+  } catch (error) {
+    console.error('API Error [getAdminQueries]:', error);
+    throw error;
+  }
+}
+
+export async function toggleQueryPublic(id, is_public) {
+  try {
+    const response = await api.patch(`/admin/queries/${id}/public`, { is_public });
+    return response.data;
+  } catch (error) {
+    console.error('API Error [toggleQueryPublic]:', error);
+    throw error;
+  }
+}
+
+export async function getCommunityQueries() {
+  try {
+    const response = await api.get('/community/queries');
+    return response.data;
+  } catch (error) {
+    console.error('API Error [getCommunityQueries]:', error);
+    throw error;
+  }
+}
+
 export default {
   getFAQs,
   getOnboardingFAQs,

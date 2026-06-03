@@ -23,12 +23,36 @@ router.post('/', async (req, res, next) => {
       throw new ValidationError('Description must be at least 20 characters long.');
     }
 
+    // Call Yaksha to evaluate query quality and auto-publish if appropriate
+    let is_public = false;
+    try {
+      const evaluation = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [
+          {
+            role: "system",
+            content: "You are an automated support classifier. The user is submitting a support ticket. Determine if this ticket should be published to the public Community Hub. A ticket should be public ONLY IF it is a clear, general question that other community members could potentially answer. If it contains PII, sensitive info, is too vague (e.g. 'help me', 'asdasd'), or is a highly specific administrative request (e.g. 'I need to reset my password', 'my payment failed'), it MUST NOT be public. Return a JSON object with a single boolean property `is_public`."
+          },
+          {
+            role: "user",
+            content: `Subject: ${subject}\n\nDescription: ${description}`
+          }
+        ],
+        response_format: { type: "json_object" }
+      });
+      const aiResult = JSON.parse(evaluation.choices[0].message.content);
+      is_public = !!aiResult.is_public;
+    } catch (err) {
+      console.error("Yaksha auto-publish evaluation failed:", err);
+      // Default to false if AI fails
+    }
+
     const sql = `
-      INSERT INTO queries (email, subject, description)
-      VALUES ($1, $2, $3)
-      RETURNING id, email, subject, description, status, created_at, updated_at
+      INSERT INTO queries (email, subject, description, is_public)
+      VALUES ($1, $2, $3, $4)
+      RETURNING id, email, subject, description, status, is_public, created_at, updated_at
     `;
-    const result = await dbQuery(sql, [email || null, subject, description]);
+    const result = await dbQuery(sql, [email || null, subject, description, is_public]);
     res.status(201).json({ success: true, data: result.rows[0] });
   } catch (error) {
     next(error);

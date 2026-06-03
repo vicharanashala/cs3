@@ -12,18 +12,18 @@ export function generateHashId() {
   return crypto.randomBytes(4).toString('hex'); // 8 character hash
 }
 
-export async function evaluateAnswer(suggestedAnswer, officialAnswer, faqQuestion) {
+export async function evaluateAnswer(suggestedAnswer, officialAnswer, faqQuestion, isQuery = false) {
   try {
     const prompt = `You are Yaksha, a friendly and encouraging community knowledge assistant for VINS/Samagama.
-A community member has taken the time to suggest an answer for an FAQ. Your job is to help maintain quality while being welcoming and supportive.
+A community member has taken the time to suggest an answer for a question. Your job is to help maintain quality while being welcoming and supportive.
 
-FAQ Question: "${faqQuestion}"
-Current Official Answer: "${officialAnswer}"
+Question: "${faqQuestion}"
+${isQuery ? 'Context: This is an open community issue.' : `Current Official Answer: "${officialAnswer}"`}
 User's Suggested Answer: "${suggestedAnswer}"
 
 Rules (be generous, not strict — we value community participation!):
 1. SPAM: Only reject if the answer is clearly spam, offensive, gibberish, or completely unrelated to the question. → Decision: "spam"
-2. APPROVED: If the answer is relevant, adds useful info, provides a different helpful perspective, or is a reasonable alternative — approve it! Even minor improvements or rephrases are welcome. → Decision: "approved"
+2. APPROVED: If the answer is relevant, adds useful info, provides a helpful perspective, or is a reasonable answer — approve it! Even minor improvements or rephrases are welcome. → Decision: "approved"
 3. ADMIN_REVIEW: Only if you're genuinely unsure whether the content is helpful or could be misleading. → Decision: "admin_review"
 
 Important: Err on the side of approving. Community participation should be encouraged, not gatekept.

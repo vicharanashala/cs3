@@ -56,7 +56,7 @@ export function YakshaAI() {
 
   // Message shape: { role, content, confidence, relatedFaqs: [{id, question, short_answer, category, confidence}] }
   const [messages, setMessages] = useState([
-    { role: 'assistant', content: 'Hey! 👋 I\'m **Yaksha**, your VINS knowledge assistant. Ask me anything about internships, NOC, Zoom, ViBe, or any other topic — I\'ll find the best answers from our community knowledge base!', confidence: 1.0, relatedFaqs: [] }
+    { role: 'assistant', content: 'Hello. I am **Yaksha**, your VINS knowledge assistant. Ask me anything about internships, NOC, Zoom, ViBe, or any other topic. I will find the best answers from our community knowledge base.', confidence: 1.0, relatedFaqs: [] }
   ]);
 
   // Suggested questions for empty state
@@ -79,9 +79,11 @@ export function YakshaAI() {
 
   const chatEndRef = useRef(null);
 
-  // Auto-scroll chat window
+  // Auto-scroll chat window smoothly but avoid scrolling past the answer
   useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (chatEndRef.current) {
+      chatEndRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
   }, [messages, isLoading]);
 
   // 1. Submit Question to Yaksha AI
@@ -143,7 +145,7 @@ export function YakshaAI() {
       console.error(err);
       setMessages(prev => [...prev, {
         role: 'assistant',
-        content: 'Oops! I\'m having trouble connecting right now 😅 Please try again in a moment, or raise a ticket and our team will help you out!',
+        content: 'An error occurred while connecting to the server. Please try again in a moment, or raise a ticket and our team will help you out.',
         confidence: 0.0
       }]);
       setShowEscapeBanner(true);
@@ -198,7 +200,7 @@ export function YakshaAI() {
             >
               <div className="flex items-center space-x-2 flex-1">
                 <AlertTriangle className="w-4 h-4 text-yellow-700 shrink-0" />
-                <span className="font-medium">Need more help? Our support team is here for you! 🙌</span>
+                <span className="font-medium">Need more help? Our support team is here for you.</span>
               </div>
               <div className="flex items-center space-x-2 shrink-0 ml-2">
                 <button
@@ -286,7 +288,7 @@ export function YakshaAI() {
                     className="flex items-center space-x-1 text-xs text-gray-400 hover:text-green-600 transition group"
                     onClick={() => {
                       // Fire and forget feedback API call could go here
-                      alert('Thanks for the feedback! 👍');
+                      alert('Thanks for the feedback!');
                     }}
                   >
                     <ThumbsUp className="w-3.5 h-3.5 group-hover:fill-green-600" />
@@ -355,7 +357,7 @@ export function YakshaAI() {
             <div className="flex flex-col items-start space-y-2">
               <div className="flex items-center space-x-1.5 text-xs text-gray-400">
                 <Bot className="w-3.5 h-3.5 text-[#111827] dark:text-gray-100" />
-                <span>Finding the best answer for you... ✨</span>
+                <span>Finding the best answer for you...</span>
               </div>
               <div className="bg-white dark:bg-gray-800 border border-gray-100 rounded-lg p-4 w-[60%] shadow-sm space-y-3">
                 <div className="animate-pulse w-[100%]" style={{ background: '#E5E7EB', borderRadius: '4px', height: '16px', filter: 'blur(3px)' }} />
