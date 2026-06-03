@@ -12,6 +12,11 @@ router.post('/suggest', async (req, res, next) => {
       return res.status(400).json({ error: 'faq_id or query_id, answer_text, and contributor_email are required' });
     }
 
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(contributor_email.trim())) {
+      return res.status(400).json({ error: 'Invalid email format' });
+    }
+
     let officialAnswer = null;
     let targetQuestion = null;
     let isQuery = false;

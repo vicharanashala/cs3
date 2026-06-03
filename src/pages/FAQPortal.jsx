@@ -53,6 +53,7 @@ export function FAQPortal() {
   const [suggestFormEmail, setSuggestFormEmail] = useState('');
   const [suggestFormText, setSuggestFormText] = useState('');
   const [suggestFormStatus, setSuggestFormStatus] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Community stats & leaderboard
   const [communityStats, setCommunityStats] = useState({ total_contributors: 0, total_approved: 0, total_submissions: 0 });
@@ -249,6 +250,7 @@ export function FAQPortal() {
 
   const handleSuggestSubmit = async (faqId) => {
     setSuggestFormStatus(null);
+    setIsSubmitting(true);
     try {
       const res = await suggestCommunityAnswer({
         faq_id: faqId,
@@ -269,6 +271,8 @@ export function FAQPortal() {
       }
     } catch (err) {
       setSuggestFormStatus({ status: 'error', msg: 'Failed to submit suggestion.' });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -831,10 +835,10 @@ export function FAQPortal() {
                               <div className="flex items-center justify-between">
                                 <button
                                   onClick={() => handleSuggestSubmit(faq.id)}
-                                  disabled={!suggestFormText.trim() || !suggestFormEmail.trim() || !suggestFormEmail.includes('@')}
+                                  disabled={isSubmitting || !suggestFormText.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(suggestFormEmail.trim())}
                                   className="bg-[#111827] dark:bg-gray-100 text-white dark:text-gray-900 text-[11px] font-semibold px-3 py-1.5 rounded hover:bg-black disabled:opacity-50 transition"
                                 >
-                                  Submit Suggestion
+                                  {isSubmitting ? 'Submitting...' : 'Submit Suggestion'}
                                 </button>
                               </div>
                               {suggestFormStatus && (
