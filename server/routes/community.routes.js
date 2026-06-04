@@ -105,9 +105,10 @@ router.post('/suggest', async (req, res, next) => {
 router.get('/contributions', async (req, res, next) => {
   try {
     const result = await query(
-      `SELECT c.id, c.hash_id, c.answer_text, c.contributor_name, c.yaksha_confidence, c.created_at, f.question 
+      `SELECT c.id, c.hash_id, c.answer_text, c.contributor_name, c.yaksha_confidence, c.created_at, COALESCE(f.question, q.subject) as question 
        FROM community_answers c
-       JOIN faqs f ON c.faq_id = f.id
+       LEFT JOIN faqs f ON c.faq_id = f.id
+       LEFT JOIN queries q ON c.query_id = q.id
        WHERE c.yaksha_decision = 'approved'
        ORDER BY c.created_at DESC
        LIMIT 10`
@@ -168,9 +169,10 @@ router.get('/status/:hash', async (req, res, next) => {
   try {
     const { hash } = req.params;
     const sql = `
-      SELECT c.yaksha_decision, c.yaksha_reasoning, c.created_at, f.question
+      SELECT c.yaksha_decision, c.yaksha_reasoning, c.created_at, COALESCE(f.question, q.subject) as question
       FROM community_answers c
-      JOIN faqs f ON c.faq_id = f.id
+      LEFT JOIN faqs f ON c.faq_id = f.id
+      LEFT JOIN queries q ON c.query_id = q.id
       WHERE c.hash_id = $1
     `;
     const result = await query(sql, [hash]);
@@ -207,9 +209,10 @@ router.get('/bounties', async (req, res, next) => {
 router.get('/feed', async (req, res, next) => {
   try {
     const sql = `
-      SELECT c.id, c.faq_id, c.contributor_name, c.yaksha_decision, c.yaksha_reasoning, c.created_at, f.question
+      SELECT c.id, c.faq_id, c.contributor_name, c.yaksha_decision, c.yaksha_reasoning, c.created_at, COALESCE(f.question, q.subject) as question
       FROM community_answers c
-      JOIN faqs f ON c.faq_id = f.id
+      LEFT JOIN faqs f ON c.faq_id = f.id
+      LEFT JOIN queries q ON c.query_id = q.id
       ORDER BY c.created_at DESC
       LIMIT 15;
     `;

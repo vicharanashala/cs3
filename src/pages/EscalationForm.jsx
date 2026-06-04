@@ -55,8 +55,8 @@ export function EscalationForm() {
 
   const score = calculateScore(subject, description);
 
-  // Submit is allowed if the user has provided a basic subject and description
-  const canSubmit = description.length > 10 && subject.length > 3;
+  // Submit is allowed if the user has provided a basic subject, description, and valid email
+  const canSubmit = description.length > 10 && subject.length > 3 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
 
   // 2. Debounced Live Duplicate Detection
   const checkDuplicate = useCallback(
@@ -233,11 +233,12 @@ export function EscalationForm() {
         {/* Email Field */}
         <div className="space-y-1">
           <label htmlFor="email" className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-            Email Address <span className="text-gray-400 normal-case">(optional)</span>
+            Email Address
           </label>
           <input
             id="email"
             type="email"
+            required
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="your@email.com"
@@ -371,7 +372,7 @@ export function EscalationForm() {
 
         {!canSubmit && description.length > 0 && (
           <p className="text-[11px] text-gray-400 text-center">
-            Add a bit more detail to enable submission 💡
+            Add a bit more detail to enable submission
           </p>
         )}
       </form>

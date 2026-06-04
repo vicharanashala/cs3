@@ -39,7 +39,14 @@ export function FAQPortal() {
   const [loadingHistory, setLoadingHistory] = useState(false);
 
   // Voting Status Tracker ({ [faqId]: 'upvoted' | 'downvoted_pending' | 'voted_done' })
-  const [votesState, setVotesState] = useState({});
+  const [votesState, setVotesState] = useState(() => {
+    const saved = localStorage.getItem('faq_votes');
+    return saved ? JSON.parse(saved) : {};
+  });
+
+  useEffect(() => {
+    localStorage.setItem('faq_votes', JSON.stringify(votesState));
+  }, [votesState]);
 
   // Popular / Frequently Asked FAQs
   const [popularFaqs, setPopularFaqs] = useState([]);
@@ -359,20 +366,22 @@ export function FAQPortal() {
         )}
 
         <div className="relative mt-6">
-          <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none text-gray-400">
-            <Search className="w-5 h-5" />
+          <div className="relative">
+            <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none text-gray-400">
+              <Search className="w-5 h-5" />
+            </div>
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setShowSuggestions(true);
+              }}
+              placeholder="Search questions about VINS, NOC, Zoom, ViBe..."
+              className="w-full pl-12 pr-4 py-3.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm focus:outline-none focus:ring-1 focus:ring-[#111827] dark:focus:ring-gray-100 focus:border-[#111827] dark:focus:border-gray-100 text-sm text-[#111827] dark:text-gray-100 transition"
+              disabled={isLoading}
+            />
           </div>
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => {
-              setSearchQuery(e.target.value);
-              setShowSuggestions(true);
-            }}
-            placeholder="Search questions about VINS, NOC, Zoom, ViBe..."
-            className="w-full pl-12 pr-4 py-3.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm focus:outline-none focus:ring-1 focus:ring-[#111827] dark:focus:ring-gray-100 focus:border-[#111827] dark:focus:border-gray-100 text-sm text-[#111827] dark:text-gray-100 transition"
-            disabled={isLoading}
-          />
 
           {/* Search suggestions dropdown */}
           <AnimatePresence>
@@ -424,7 +433,7 @@ export function FAQPortal() {
                 </p>
                 <button
                   onClick={() => navigate('/yaksha', { state: { query: searchQuery } })}
-                  className="ml-4 text-xs font-semibold text-[#111827] dark:text-gray-100 hover:text-black border border-[#111827] dark:border-gray-100 hover:bg-[#111827] dark:hover:bg-gray-100 hover:text-white dark:text-gray-900 px-3 py-1.5 rounded transition shrink-0"
+                  className="ml-4 text-xs font-semibold text-[#111827] dark:text-gray-100 hover:text-black border border-[#111827] dark:border-gray-100 hover:bg-[#111827] dark:hover:bg-gray-100 hover:text-white dark:hover:text-gray-900 px-3 py-1.5 rounded transition shrink-0"
                 >
                   Ask Yaksha →
                 </button>
@@ -494,7 +503,7 @@ export function FAQPortal() {
                   }}
                   className="px-4 py-3.5 hover:bg-gray-50 dark:bg-gray-900/50 cursor-pointer transition border-b border-gray-100 last:border-0 flex items-start gap-3"
                 >
-                  <span className="text-gray-300 text-xs font-mono mt-0.5 w-4 shrink-0">{String(i + 1).padStart(2, '0')}</span>
+                  <span className="text-gray-400 dark:text-gray-500 text-xs font-mono mt-0.5 w-4 shrink-0">{String(i + 1).padStart(2, '0')}</span>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm text-[#111827] dark:text-gray-100 font-medium leading-snug">{faq.question}</p>
                     <p className="text-[11px] text-gray-400 mt-1">{faq.category} &middot; {Number(faq.search_count)} searches</p>
@@ -725,7 +734,7 @@ export function FAQPortal() {
                           onClick={() => setExpandedFaqId(isExpanded ? null : faq.id)}
                           className="text-[#111827] dark:text-gray-100 hover:underline font-semibold flex items-center space-x-1"
                         >
-                          <span>{isExpanded ? 'Show less' : 'Read full answer'}</span>
+                          <span>{isExpanded ? 'View Less' : 'View More'}</span>
                           {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
                         </button>
 
@@ -796,6 +805,7 @@ export function FAQPortal() {
                               setSuggestFormFaqId(faq.id);
                               setSuggestFormStatus(null);
                               setSuggestFormText('');
+                              setSuggestFormEmail('');
                             }
                           }}
                           className="text-[11px] text-gray-500 dark:text-gray-400 hover:text-[#111827] dark:hover:text-gray-100 font-semibold text-left underline w-fit"
@@ -817,7 +827,7 @@ export function FAQPortal() {
                                 placeholder="Your Email (Required)"
                                 value={suggestFormEmail}
                                 onChange={(e) => setSuggestFormEmail(e.target.value)}
-                                className="w-full px-3 py-2 text-xs border border-gray-200 dark:border-gray-700 rounded focus:outline-none focus:border-[#111827] dark:focus:border-gray-100"
+                                className="w-full px-3 py-2 text-xs border border-gray-200 dark:border-gray-700 rounded focus:outline-none focus:border-[#111827] dark:focus:border-gray-100 bg-white dark:bg-gray-800 text-[#111827] dark:text-gray-100"
                               />
                               <div className="relative">
                                 <textarea
@@ -825,7 +835,7 @@ export function FAQPortal() {
                                   value={suggestFormText}
                                   onChange={(e) => setSuggestFormText(e.target.value)}
                                   rows={3}
-                                  className="w-full px-3 py-2 pb-6 text-xs border border-gray-200 dark:border-gray-700 rounded focus:outline-none focus:border-[#111827] dark:focus:border-gray-100"
+                                  className="w-full px-3 py-2 pb-6 text-xs border border-gray-200 dark:border-gray-700 rounded focus:outline-none focus:border-[#111827] dark:focus:border-gray-100 bg-white dark:bg-gray-800 text-[#111827] dark:text-gray-100"
                                 />
                                 <div className="absolute bottom-1 right-2 flex items-center space-x-1 opacity-50">
                                   <svg viewBox="0 0 16 16" width="12" height="12" fill="currentColor"><path d="M14.85 3H1.15C.52 3 0 3.52 0 4.15v7.69C0 12.48.52 13 1.15 13h13.69c.64 0 1.15-.52 1.15-1.15v-7.7C16 3.52 15.48 3 14.85 3zM9 11H7V8L5.5 9.92 4 8v3H2V5h2l1.5 2L7 5h2v6zm2.99.5L9.5 8H11V5h2v3h1.5l-2.51 3.5z"></path></svg>

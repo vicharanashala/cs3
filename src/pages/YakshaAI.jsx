@@ -55,9 +55,17 @@ export function YakshaAI() {
   }, [location]);
 
   // Message shape: { role, content, confidence, relatedFaqs: [{id, question, short_answer, category, confidence}] }
-  const [messages, setMessages] = useState([
-    { role: 'assistant', content: 'Hello. I am **Yaksha**, your VINS knowledge assistant. Ask me anything about internships, NOC, Zoom, ViBe, or any other topic. I will find the best answers from our community knowledge base.', confidence: 1.0, relatedFaqs: [] }
-  ]);
+  const [messages, setMessages] = useState(() => {
+    const saved = sessionStorage.getItem('yaksha_messages');
+    if (saved) return JSON.parse(saved);
+    return [
+      { role: 'assistant', content: 'Hello. I am **Yaksha**, your VINS knowledge assistant. Ask me anything about internships, NOC, Zoom, ViBe, or any other topic. I will find the best answers from our community knowledge base.', confidence: 1.0, relatedFaqs: [] }
+    ];
+  });
+
+  useEffect(() => {
+    sessionStorage.setItem('yaksha_messages', JSON.stringify(messages));
+  }, [messages]);
 
   // Suggested questions for empty state
   const suggestedQuestions = [
@@ -76,6 +84,16 @@ export function YakshaAI() {
 
   // Selected related FAQ from chat (click to preview)
   const [selectedRelatedFaq, setSelectedRelatedFaq] = useState(null);
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') setSelectedRelatedFaq(null);
+    };
+    if (selectedRelatedFaq) {
+      window.addEventListener('keydown', handleKeyDown);
+    }
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedRelatedFaq]);
 
   const chatEndRef = useRef(null);
 
@@ -324,7 +342,7 @@ export function YakshaAI() {
                           <span className="text-[10px] font-mono text-gray-300 mt-0.5 shrink-0">
                             #{i + 1}
                           </span>
-                          <p className="text-xs font-semibold text-[#111827] dark:text-gray-100 line-clamp-1 group-hover:text-black">
+                          <p className="text-xs font-semibold text-[#111827] dark:text-gray-100 line-clamp-1 group-hover:text-black dark:group-hover:text-white">
                             {faq.question}
                           </p>
                         </div>
@@ -367,46 +385,55 @@ export function YakshaAI() {
             </div>
           )}
 
-          {/* Selected related FAQ preview panel */}
+          {/* Selected related FAQ modal popup */}
           <AnimatePresence>
             {selectedRelatedFaq && (
               <motion.div
-                initial={{ opacity: 0, y: 8, scale: 0.98 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: 8, scale: 0.98 }}
-                className="mt-2 p-5 bg-white dark:bg-gray-800 border border-[#111827] dark:border-gray-100 rounded-lg shadow-md text-left relative"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-gray-900/40 backdrop-blur-sm"
+                onClick={() => setSelectedRelatedFaq(null)}
               >
-                <button
-                  onClick={() => setSelectedRelatedFaq(null)}
-                  className="absolute top-3 right-3 text-gray-400 hover:text-[#111827] dark:hover:text-gray-100 transition"
+                <motion.div
+                  initial={{ scale: 0.95, y: 20 }}
+                  animate={{ scale: 1, y: 0 }}
+                  exit={{ scale: 0.95, y: 20 }}
+                  className="bg-white dark:bg-gray-800 border border-[#111827] dark:border-gray-600 rounded-lg shadow-2xl p-6 text-left relative max-w-2xl w-full max-h-[85vh] overflow-y-auto"
+                  onClick={(e) => e.stopPropagation()}
                 >
-                  <X className="w-4 h-4" />
-                </button>
-                <span className="bg-[#111827] dark:bg-gray-100 text-white dark:text-gray-900 text-[10px] px-2 py-0.5 rounded font-medium tracking-wide uppercase">
-                  {selectedRelatedFaq.category || 'FAQ Result'}
-                </span>
-                <h3 className="font-bold text-base text-[#111827] dark:text-gray-100 mt-2 mb-3">{selectedRelatedFaq.question}</h3>
-                <p className="text-sm text-gray-600 leading-relaxed whitespace-pre-line">
-                  {selectedRelatedFaq.short_answer}
-                </p>
-                <div className="mt-3 pt-3 border-t border-gray-100 flex items-center justify-between">
-                  <span className={`text-[10px] font-mono ${
-                    selectedRelatedFaq.confidence >= 0.7 ? 'text-green-600' :
-                    selectedRelatedFaq.confidence >= 0.3 ? 'text-yellow-600' : 'text-gray-400'
-                  }`}>
-                    match: {Math.round((selectedRelatedFaq.confidence || 0) * 100)}%
-                  </span>
                   <button
-                    onClick={() => {
-                      setMessages(prev => [...prev, { role: 'user', content: `Tell me more about: ${selectedRelatedFaq.question}` }]);
-                      setInputVal(`Tell me more about: ${selectedRelatedFaq.question}`);
-                      setSelectedRelatedFaq(null);
-                    }}
-                    className="text-xs font-semibold text-[#111827] dark:text-gray-100 hover:text-black border border-[#111827] dark:border-gray-100 hover:bg-[#111827] dark:hover:bg-gray-100 hover:text-white dark:text-gray-900 px-3 py-1.5 rounded transition"
+                    onClick={() => setSelectedRelatedFaq(null)}
+                    className="absolute top-4 right-4 text-gray-400 hover:text-[#111827] dark:hover:text-gray-100 transition"
                   >
-                    Ask more →
+                    <X className="w-5 h-5" />
                   </button>
-                </div>
+                  <span className="bg-[#111827] dark:bg-gray-100 text-white dark:text-gray-900 text-[10px] px-2 py-0.5 rounded font-medium tracking-wide uppercase">
+                    {selectedRelatedFaq.category || 'FAQ Result'}
+                  </span>
+                  <h3 className="font-bold text-lg text-[#111827] dark:text-gray-100 mt-3 mb-4">{selectedRelatedFaq.question}</h3>
+                  <div className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-line">
+                    {selectedRelatedFaq.short_answer}
+                  </div>
+                  <div className="mt-6 pt-4 border-t border-gray-100 dark:border-gray-700 flex items-center justify-between">
+                    <span className={`text-[11px] font-mono ${
+                      selectedRelatedFaq.confidence >= 0.7 ? 'text-green-600' :
+                      selectedRelatedFaq.confidence >= 0.3 ? 'text-yellow-600' : 'text-gray-400'
+                    }`}>
+                      match: {Math.round((selectedRelatedFaq.confidence || 0) * 100)}%
+                    </span>
+                    <button
+                      onClick={() => {
+                        setMessages(prev => [...prev, { role: 'user', content: `Tell me more about: ${selectedRelatedFaq.question}` }]);
+                        setInputVal(`Tell me more about: ${selectedRelatedFaq.question}`);
+                        setSelectedRelatedFaq(null);
+                      }}
+                      className="text-xs font-semibold text-[#111827] dark:text-gray-100 hover:text-black border border-[#111827] dark:border-gray-100 hover:bg-[#111827] dark:hover:bg-gray-100 hover:text-white dark:hover:text-gray-900 px-4 py-2 rounded transition"
+                    >
+                      Ask more →
+                    </button>
+                  </div>
+                </motion.div>
               </motion.div>
             )}
           </AnimatePresence>

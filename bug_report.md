@@ -1,85 +1,24 @@
-# Samagama FAQ Platform — Quality Assurance & Bug Report
+# Yaksha AI UI/UX Bug Report & Fix Log
 
-As a world-class QA and Systems Architect, I have performed a deep-dive code review and execution audit of the Samagama FAQ repository. Below is a comprehensive breakdown of critical bugs, structural flaws, pipeline gaps, and UX friction points found across the application.
+| Issue ID | Description | Severity | Status | Fix Applied |
+| :--- | :--- | :--- | :--- | :--- |
+| **01** | Light/Dark mode transition is visually abrupt and lacks smoothness. | UI/UX | Resolved | Added global `transition-colors duration-200 ease-in-out` rule to `*` in `index.css`. |
+| **02** | "Ask Yaksha" button becomes invisible in Dark Mode unless hovered. | UI/UX | Resolved | Corrected Tailwind class from `dark:text-gray-900` to `dark:hover:text-gray-900` in `FAQPortal.jsx`. |
+| **03** | FAQ Answers are truncated; button labels are misleading ("Read full answer"). | UI/UX | Resolved | Updated toggle labels to `View More` and `View Less` to properly indicate expansion behavior. |
+| **04** | Better Answer input text is invisible in Dark Mode (textarea). | UI/UX | Resolved | Added `bg-white dark:bg-gray-800 text-[#111827] dark:text-gray-100` to textarea in `FAQPortal.jsx`. |
+| **05** | Email field state leaks between different FAQ suggestion forms. | Bug | Resolved | Added logic to reset `suggestFormEmail` to empty when switching the active suggest form to a different FAQ. |
+| **06** | Tracking explanation displays incorrectly or doesn't match submission. | Bug | Resolved | Switched from `INNER JOIN` to `LEFT JOIN` on both `faqs` and `queries` tables in `community.routes.js`, ensuring correct question/subject mapping via `COALESCE`. |
+| **07** | Related FAQ text disappears on hover in Dark Mode. | UI/UX | Resolved | Updated styling to include `dark:group-hover:text-white` on the text element inside the hoverable card in `YakshaAI.jsx`. |
+| **08** | Users can repeatedly submit thumbs-up/thumbs-down feedback. | Bug | Resolved | Persisted `votesState` across sessions using `localStorage` in `FAQPortal.jsx` so feedback state is remembered. |
+| **09** | Related FAQ answers expand below the list, creating clutter. | UI/UX | Resolved | Refactored the inline related FAQ preview into a fixed modal overlay (reusing the "Start Here" design) with ESC key dismissal. |
+| **10** | Yaksha AI conversations are erased when navigating away. | Bug | Resolved | Persisted `messages` state using `sessionStorage` in `YakshaAI.jsx` to survive navigation and accidental reloads. |
+| **11** | Support query section displays an unnecessary/unprofessional emoji. | UI/UX | Resolved | Removed the 💡 emoji from the form validation message in `EscalationForm.jsx`. |
+| **12** | Email field is optional for Support Queries. | Bug | Resolved | Removed "(optional)" label, added `required` attribute, and implemented regex validation within the `canSubmit` logic. |
+| **13** | Search icon drops to bottom of container when typing a query. | UI/UX | Resolved | Wrapped the search icon and input inside their own relative container so `inset-y-0` only spans the input height, not the dropdown area. |
+| **14** | Theme transition rule (`*`) conflicted with framer-motion animations. | UI/UX | Resolved | Replaced wildcard `*` selector with targeted element selectors and explicit `transition-property: color, background-color, border-color, box-shadow` to avoid breaking transforms/opacity animations. |
+| **15** | FAQ numbering (01) invisible in light mode due to `text-gray-300`. | UI/UX | Resolved | Changed to `text-gray-400 dark:text-gray-500` for proper contrast in both themes. |
+| **16** | Yaksha approves every answer including gibberish/greetings (e.g. "hi are you there"). | Bug | Resolved | Rewrote the evaluation prompt in `yaksha.service.js` from "err on the side of approving" to strict quality rules: submissions must substantively answer the question, be 15+ words with specific info, and not be greetings/filler/off-topic. Non-answers now route to "spam". |
 
----
+> **Pipeline Architecture Note:** The Yaksha evaluation pipeline (evaluate → trust-tier check → direct-write/admin-review routing) is architecturally sound. The approval-of-garbage was a prompt leniency issue, not a code bug. The prompt has now been tightened.
 
-## 1. Critical Workflow & Pipeline Gaps
-
-### 🚨 Orphaned "Pending Review" FAQs (No Admin Moderation Workflow)
-- **File affected:** [query.routes.js](file:///c:/Users/udayk/OneDrive/Desktop/FAQ/cs3/server/routes/query.routes.js#L110-L113)
-- **Description:** When an admin resolves and closes a support ticket (`PATCH /api/query/:id`), the backend automatically uses GPT-3.5 to draft a corresponding FAQ entry and inserts it into the database with `status = 'pending_review'`. 
-- **The Bug:** There is **no API endpoint** to approve, publish, edit, or delete pending FAQs, and the admin dashboard completely lacks a panel to review them. These drafted entries remain orphaned in the database forever and can never be published to the frontend.
-
----
-
-## 2. Database & Search Pipeline Bugs
-
-### 🚨 Vector Search Null-Sorting Masking Best Matches
-- **File affected:** [ai.routes.js](file:///c:/Users/udayk/OneDrive/Desktop/FAQ/cs3/server/routes/ai.routes.js#L25-L35)
-- **Description:** In the `/api/ai/ask` route, the query computes the semantic confidence score using pgvector:
-  ```sql
-  SELECT id, question, answer, short_answer, category, updated_at,
-         (1 - (embedding <=> $1::vector)) * (1 - (0.01 * ...)) AS confidence_score
-  FROM faqs WHERE status = 'published' ORDER BY confidence_score DESC LIMIT 1;
-  ```
-- **The Bug:** If any published FAQ does not have a generated embedding (due to incomplete seeding or external imports), the term `embedding <=> $1::vector` returns `NULL`. In PostgreSQL, an `ORDER BY DESC` query sorts `NULL` values **first** by default. This causes the query to return the NULL-embedding FAQ, yielding a score of `NaN` (coerced to `0.0`), completely masking actual high-confidence matches in the database.
-
-### 🚨 Database Design Flaw: Inaccurate Vector Indexing (`ivfflat`)
-- **File affected:** [schema.sql](file:///c:/Users/udayk/OneDrive/Desktop/FAQ/cs3/server/db/schema.sql#L50)
-- **Description:** The database schema creates an `ivfflat` index on an empty table:
-  ```sql
-  CREATE INDEX ON faqs USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
-  ```
-- **The Bug:** `ivfflat` indexes require the database to be populated before creation because they perform K-means clustering to define center lists. Creating it on an empty table yields poor search recall. Additionally, pgvector requires at least 1,000+ rows for `ivfflat` to be effective. For small knowledge bases, `HNSW` should be used instead since it does not require training and works perfectly on empty tables.
-
----
-
-## 3. High-Risk Transaction & Performance Anti-Patterns
-
-### 🚨 External API Calls Executed Inside Active Database Transactions
-- **Files affected:** [query.routes.js](file:///c:/Users/udayk/OneDrive/Desktop/FAQ/cs3/server/routes/query.routes.js#L88-L113) & [faq.routes.js](file:///c:/Users/udayk/OneDrive/Desktop/FAQ/cs3/server/routes/faq.routes.js#L153-L174)
-- **Description:** During ticket closure (`PATCH /api/query/:id`) and FAQ updates (`PUT /api/faq/:id`), the routes acquire a database client from the pool, start a transaction (`BEGIN`), and then make external HTTP calls to OpenAI (`openai.chat.completions.create` and `generateEmbedding`).
-- **The Bug:** If OpenAI experiences latency, rate limiting, or connection timeouts, the database connection is held open in an active transaction block. Under moderate user load, this will exhaust the Express/Pg connection pool, causing the entire backend server to freeze and crash.
-
----
-
-## 4. Logical Bugs in Admin Analytics
-
-### 🚨 Analytics Heatmap Skewed by User Feedback Votes
-- **File affected:** [admin.routes.js](file:///c:/Users/udayk/OneDrive/Desktop/FAQ/cs3/server/routes/admin.routes.js#L31-L39)
-- **Description:** The confidence heatmap endpoint joins `search_logs` with `faqs` to calculate average query confidence per category:
-  ```sql
-  SELECT f.category, ROUND(AVG(s.confidence_score)::numeric, 3) as avg_confidence, COUNT(*) as volume
-  FROM search_logs s JOIN faqs f ON s.matched_faq_id = f.id ...
-  ```
-- **The Bug:** When users click Thumbs Up/Down on the frontend, it inserts a feedback log into `search_logs` with a score of `1.0` or `0.0`. Because the heatmap query doesn't filter out `source = 'vote'`, these vote records are treated as user searches, heavily skewing the average confidence of the search engine.
-
-### 🚨 Vote Logs Triggering False "Rage Sessions"
-- **File affected:** [admin.routes.js](file:///c:/Users/udayk/OneDrive/Desktop/FAQ/cs3/server/routes/admin.routes.js#L51-L61)
-- **Description:** The Rage Session detector identifies queries with low confidence:
-  ```sql
-  SELECT query_text, COUNT(*) as attempts ... WHERE confidence_score < 0.70 ... GROUP BY query_text HAVING COUNT(*) >= 4
-  ```
-- **The Bug:** Since downvotes log a confidence of `0.0` and write feedback reasons (e.g., `Downvote: Confusing`) to `query_text`, if 4 users downvote FAQs with the same reason within 2 minutes, the admin dashboard will incorrectly report `"Downvote: Confusing"` as a user rage search session.
-
----
-
-## 5. UI & UX Friction Points
-
-### ⚠️ Excessive Gatekeeping in Support Ticket Submission
-- **Files affected:** [QualityMeter.jsx](file:///c:/Users/udayk/OneDrive/Desktop/FAQ/cs3/src/components/QualityMeter.jsx) & [EscalationForm.jsx](file:///c:/Users/udayk/OneDrive/Desktop/FAQ/cs3/src/pages/EscalationForm.jsx#L97)
-- **Description:** The Escalation Form disables the submit button if the quality meter score is less than 2.
-- **The Friction:** The scoring system relies on rigid heuristic checks (e.g. description must contain words like "expected", "actual", "should", "but", or contain a question mark). If a user writes a concise, grammatically correct issue (e.g. *"The server throws a 500 error on /api/faq when I submit.*"), they are locked out of submitting a ticket with no clear instructions on how to bypass the barrier.
-
-### ⚠️ Broken Onboarding FAQ Answers
-- **File affected:** [faq.routes.js](file:///c:/Users/udayk/OneDrive/Desktop/FAQ/cs3/server/routes/faq.routes.js#L34-L41) & [FAQPortal.jsx](file:///c:/Users/udayk/OneDrive/Desktop/FAQ/cs3/src/pages/FAQPortal.jsx#L318)
-- **Description:** The onboarding API endpoint `GET /api/faq/onboarding` omits the `answer` column:
-  ```sql
-  SELECT id, question, short_answer, category FROM faqs WHERE is_onboarding_faq = true AND status = 'published' LIMIT 5;
-  ```
-- **The Bug:** When a user clicks an onboarding FAQ card in the checklist, the UI attempts to show the full answer but displays `undefined` (falling back to `short_answer`), preventing users from reading onboarding details in the portal.
-
-### ⚠️ Sticky Escape Hatch State Leak
-- **File affected:** [YakshaAI.jsx](file:///c:/Users/udayk/OneDrive/Desktop/FAQ/cs3/src/pages/YakshaAI.jsx#L119-L122)
-- **Description:** Once the "Raise a Ticket" escape hatch banner is triggered in the chat, it is never hidden or reset, even if the user subsequently executes high-confidence queries. Additionally, subsequent queries overwrite `failedQueryText`, causing the ticket pre-fill description to load the user's latest successful query instead of the failed one.
+_Report automatically generated by Antigravity during the UI/UX Sprint._

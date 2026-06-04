@@ -107,7 +107,7 @@ export function CommunityHub() {
                 placeholder="Track your suggestion hash (e.g. a1b2c3d4)"
                 value={trackHash}
                 onChange={(e) => setTrackHash(e.target.value)}
-                className="w-full pl-9 pr-3 py-2 text-xs border border-gray-200 dark:border-gray-700 rounded-md focus:outline-none focus:border-[#111827] dark:focus:border-gray-100 bg-gray-50 dark:bg-gray-900/50"
+                className="w-full pl-9 pr-3 py-2 text-xs border border-gray-200 dark:border-gray-700 rounded-md focus:outline-none focus:border-[#111827] dark:focus:border-gray-100 bg-gray-50 dark:bg-gray-900/50 text-[#111827] dark:text-gray-100"
               />
             </div>
             <button
