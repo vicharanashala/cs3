@@ -47,7 +47,7 @@ router.get('/heatmap', adminAuth, async (req, res, next) => {
 router.get('/popular', async (req, res, next) => {
   try {
     const sql = `
-      SELECT f.id, f.question, f.short_answer, f.category,
+      SELECT f.id, f.question, f.answer, f.short_answer, f.category,
              COUNT(s.id) AS search_count,
              SUM(CASE WHEN s.confidence_score = 1.0 THEN 1 ELSE 0 END) AS upvotes
       FROM faqs f
