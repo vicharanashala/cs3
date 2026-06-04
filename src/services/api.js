@@ -136,9 +136,9 @@ export async function getQueryById(id) {
   }
 }
 
-export async function updateQueryStatus(id, status) {
+export async function updateQueryStatus(id, data) {
   try {
-    const response = await api.patch(`/query/${id}`, { status });
+    const response = await api.patch(`/query/${id}`, typeof data === 'string' ? { status: data } : data);
     return response.data;
   } catch (error) {
     console.error(`API Error [updateQueryStatus ${id}]:`, error);

@@ -84,7 +84,7 @@ router.patch('/:id', async (req, res, next) => {
 
   try {
     const { id } = req.params;
-    const { status } = req.body;
+    const { status, admin_reply } = req.body;
 
     if (!status || !['open', 'review', 'closed'].includes(status)) {
       throw new ValidationError('Invalid status value. Must be open, review, or closed.');
@@ -99,14 +99,14 @@ router.patch('/:id', async (req, res, next) => {
     }
     currentQuery = selectRes.rows[0];
 
-    // Update status
+    // Update status and reply
     const updateSql = `
       UPDATE queries 
-      SET status = $1, updated_at = NOW() 
-      WHERE id = $2
+      SET status = $1, admin_reply = COALESCE($2, admin_reply), updated_at = NOW() 
+      WHERE id = $3
       RETURNING *
     `;
-    const updateRes = await client.query(updateSql, [status, id]);
+    const updateRes = await client.query(updateSql, [status, admin_reply || null, id]);
     updatedRow = updateRes.rows[0];
 
     // COMMIT the transaction BEFORE any external API calls

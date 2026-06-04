@@ -103,6 +103,7 @@ router.post('/ask', async (req, res, next) => {
         id: f.id,
         question: f.question,
         short_answer: f.short_answer || f.answer,
+        answer: f.answer,
         category: f.category,
         confidence: Math.round(parseFloat(f.confidence_score || 0) * 1000) / 1000,
       })),

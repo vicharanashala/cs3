@@ -469,8 +469,10 @@ export function FAQPortal() {
                   {selectedSuggestion.category || 'FAQ Result'}
                 </span>
                 <h3 className="font-bold text-lg text-[#111827] dark:text-gray-100 mt-3 mb-4">{selectedSuggestion.question}</h3>
-                <div className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-line">
-                  {selectedSuggestion.answer || selectedSuggestion.short_answer}
+                <div className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed prose prose-sm dark:prose-invert max-w-none prose-p:leading-relaxed prose-pre:bg-gray-100 dark:prose-pre:bg-gray-800 prose-pre:text-[#111827] dark:prose-pre:text-gray-100 prose-a:text-blue-600 dark:prose-a:text-blue-400 whitespace-pre-line">
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                    {selectedSuggestion.answer || selectedSuggestion.short_answer}
+                  </ReactMarkdown>
                 </div>
               </motion.div>
             </motion.div>
@@ -658,9 +660,9 @@ export function FAQPortal() {
 
                 return (
                   <motion.div
-                    layout="position"
+                    layout
                     key={faq.id}
-                    className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:border-gray-300 rounded-lg p-5 shadow-sm space-y-4 transition flex flex-col justify-between"
+                    className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:border-gray-300 rounded-lg p-5 shadow-sm space-y-4 transition flex flex-col h-fit"
                   >
                     <div className="space-y-3">
                       {/* Badge Row */}

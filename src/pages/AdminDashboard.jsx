@@ -8,7 +8,7 @@ import { useApp } from '../store/AppContext';
 import { 
   getAdminHeatmap, getAdminGaps, getAdminRageSessions, createFAQ,
   getAdminQueue, adminReviewQueueItem, adminDeleteCommunityHash,
-  getAdminQueries, toggleQueryPublic
+  getAdminQueries, toggleQueryPublic, updateQueryStatus
 } from '../services/api';
 
 export function AdminDashboard() {
@@ -33,6 +33,24 @@ export function AdminDashboard() {
   // Modal and Toast states
   const [draftFaq, setDraftFaq] = useState(null);
   const [toastMessage, setToastMessage] = useState('');
+  const [replyText, setReplyText] = useState({});
+
+  const handleReply = async (id) => {
+    const text = replyText[id];
+    if (!text) return;
+    setIsLoading(true);
+    try {
+      await updateQueryStatus(id, { status: 'closed', admin_reply: text });
+      showToast('Reply sent and query closed.');
+      setReplyText(prev => ({ ...prev, [id]: '' }));
+      const queriesRes = await getAdminQueries();
+      if (queriesRes.success) setAdminQueries(queriesRes.data);
+    } catch (err) {
+      showToast('Failed to reply.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   // 1. Auth Gate Verification on mount
   useEffect(() => {
@@ -659,6 +677,32 @@ export function AdminDashboard() {
                 <div className="bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded p-3">
                   <p className="text-xs text-gray-600 dark:text-gray-300 leading-relaxed whitespace-pre-line">{item.description}</p>
                 </div>
+                
+                {item.admin_reply && (
+                  <div className="bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-800 rounded p-3">
+                    <span className="text-[10px] font-bold text-green-700 dark:text-green-400 uppercase tracking-wider mb-1 block">Admin Reply</span>
+                    <p className="text-xs text-green-800 dark:text-green-300 leading-relaxed whitespace-pre-line">{item.admin_reply}</p>
+                  </div>
+                )}
+                
+                {item.status !== 'closed' && (
+                  <div className="space-y-2">
+                    <textarea 
+                      placeholder="Type your reply to the user..."
+                      rows="2"
+                      value={replyText[item.id] || ''}
+                      onChange={(e) => setReplyText(prev => ({ ...prev, [item.id]: e.target.value }))}
+                      className="w-full px-3 py-2 text-xs bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md focus:outline-none focus:ring-1 focus:ring-[#111827] dark:focus:ring-gray-100"
+                    />
+                    <button
+                      onClick={() => handleReply(item.id)}
+                      disabled={!replyText[item.id] || isLoading}
+                      className="text-[10px] font-bold px-3 py-1.5 rounded transition bg-[#111827] dark:bg-gray-100 text-white dark:text-gray-900 hover:bg-black disabled:opacity-50"
+                    >
+                      Reply & Close Ticket
+                    </button>
+                  </div>
+                )}
 
                 <div className="pt-2 border-t border-gray-100 flex items-center justify-between">
                   <span className="text-[10px] text-gray-500 font-medium">Community Visibility: {item.is_public ? 'Public' : 'Hidden'}</span>

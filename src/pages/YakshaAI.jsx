@@ -302,26 +302,32 @@ export function YakshaAI() {
               {/* Chat Feedback Buttons */}
               {msg.role === 'assistant' && msg.content !== 'Finding the best answer for you... ✨' && msg.confidence > 0 && (
                 <div className="flex items-center space-x-3 mt-1.5 ml-1">
-                  <button 
-                    className="flex items-center space-x-1 text-xs text-gray-400 hover:text-green-600 transition group"
-                    onClick={() => {
-                      // Fire and forget feedback API call could go here
-                      alert('Thanks for the feedback!');
-                    }}
-                  >
-                    <ThumbsUp className="w-3.5 h-3.5 group-hover:fill-green-600" />
-                    <span className="text-[10px] font-medium opacity-0 group-hover:opacity-100 transition-opacity">Helpful</span>
-                  </button>
-                  <button 
-                    className="flex items-center space-x-1 text-xs text-gray-400 hover:text-red-500 transition group"
-                    onClick={() => {
-                      setShowEscapeBanner(true);
-                      setFailedQueryText("I didn't find Yaksha's answer helpful.");
-                    }}
-                  >
-                    <ThumbsDown className="w-3.5 h-3.5 group-hover:fill-red-500" />
-                    <span className="text-[10px] font-medium opacity-0 group-hover:opacity-100 transition-opacity">Not Helpful</span>
-                  </button>
+                  {!msg.feedback ? (
+                    <>
+                      <button 
+                        className="flex items-center space-x-1 text-xs text-gray-400 hover:text-green-600 transition group"
+                        onClick={() => {
+                          setMessages(prev => prev.map((m, i) => i === index ? { ...m, feedback: 'liked' } : m));
+                        }}
+                      >
+                        <ThumbsUp className="w-3.5 h-3.5 group-hover:fill-green-600" />
+                        <span className="text-[10px] font-medium opacity-0 group-hover:opacity-100 transition-opacity">Helpful</span>
+                      </button>
+                      <button 
+                        className="flex items-center space-x-1 text-xs text-gray-400 hover:text-red-500 transition group"
+                        onClick={() => {
+                          setMessages(prev => prev.map((m, i) => i === index ? { ...m, feedback: 'disliked' } : m));
+                          setShowEscapeBanner(true);
+                          setFailedQueryText("I didn't find Yaksha's answer helpful.");
+                        }}
+                      >
+                        <ThumbsDown className="w-3.5 h-3.5 group-hover:fill-red-500" />
+                        <span className="text-[10px] font-medium opacity-0 group-hover:opacity-100 transition-opacity">Not Helpful</span>
+                      </button>
+                    </>
+                  ) : (
+                    <span className="text-[10px] font-medium text-gray-400">Thanks for the feedback!</span>
+                  )}
                 </div>
               )}
 
@@ -412,8 +418,10 @@ export function YakshaAI() {
                     {selectedRelatedFaq.category || 'FAQ Result'}
                   </span>
                   <h3 className="font-bold text-lg text-[#111827] dark:text-gray-100 mt-3 mb-4">{selectedRelatedFaq.question}</h3>
-                  <div className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-line">
-                    {selectedRelatedFaq.short_answer}
+                  <div className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed prose prose-sm dark:prose-invert max-w-none prose-p:leading-relaxed prose-pre:bg-gray-100 dark:prose-pre:bg-gray-800 prose-pre:text-[#111827] dark:prose-pre:text-gray-100 prose-a:text-blue-600 dark:prose-a:text-blue-400 whitespace-pre-line">
+                    <ReactMarkdown rehypePlugins={[rehypeSanitize]}>
+                      {selectedRelatedFaq.answer || selectedRelatedFaq.short_answer}
+                    </ReactMarkdown>
                   </div>
                   <div className="mt-6 pt-4 border-t border-gray-100 dark:border-gray-700 flex items-center justify-between">
                     <span className={`text-[11px] font-mono ${
