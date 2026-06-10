@@ -1,255 +1,128 @@
-# Samagama FAQ Platform (VINS Knowledge Vault)
+# Samagama — The Intelligent FAQ & Community Platform
 
-A full-stack FAQ knowledge base platform powered by semantic vector search, LLM refinement, and real-time analytics. Built for the VINS (ViNe Software) community to self-serve answers and escalate unresolved issues to support engineers.
+![Samagama Banner](https://via.placeholder.com/1200x400/111827/FFFFFF?text=SAMAGAMA+-+AI+Powered+Knowledge+Base)
 
----
-
-## 🏗️ Architecture Overview
-
-```
-Browser (React SPA)
-       ↕
-Express API Server (Port 3001)
-       ↕
-NeonDB (PostgreSQL + pgvector)
-       ↕
-OpenAI API (Embeddings + Chat)
-```
-
-**Frontend:** React 18 + Vite + Tailwind CSS + Framer Motion + React Router + Axios
-**Backend:** Express.js (ES Modules) + pg (NeonDB) + pgvector + OpenAI SDK
-**Database:** NeonDB (PostgreSQL with `vector` extension, 1536-dim embeddings)
-**AI:** OpenAI `text-embedding-3-small` for embeddings, `gpt-3.5-turbo` for LLM refinement
+**Samagama** is a next-generation, AI-driven Knowledge Base and Community Support platform built for the VINS/Samagama ecosystem. It goes beyond static FAQ pages by implementing a self-healing ecosystem where AI, Community Contributors, and Administrators collaborate to resolve user queries instantly.
 
 ---
 
-## 📁 Project Structure
+## 🌟 Core Features
 
-```
-samagama faq project/
-├── src/
-│   ├── main.jsx              # React entry point
-│   ├── App.jsx               # Root component with router + context provider
-│   ├── index.css             # Tailwind base styles
-│   ├── store/
-│   │   └── AppContext.jsx    # Global state (loading, confidence history, failed query)
-│   ├── services/
-│   │   └── api.js            # Axios client with auth interceptors
-│   ├── pages/
-│   │   ├── FAQPortal.jsx     # Main FAQ browse/search page
-│   │   ├── YakshaAI.jsx      # AI chat with vector search
-│   │   ├── EscalationForm.jsx # Support ticket submission
-│   │   └── AdminDashboard.jsx # Admin metrics & knowledge gap management
-│   └── components/
-│       └── QualityMeter.jsx  # Ticket description quality scorer
-├── server/
-│   ├── index.js              # Express server entry point
-│   ├── db/
-│   │   ├── schema.sql        # Full DB schema with tables, enums, indexes
-│   │   └── neon.js           # NeonDB connection pool + query helper
-│   ├── middleware/
-│   │   ├── errorHandler.js   # Global error handler with typed errors
-│   │   └── adminAuth.js      # Admin key verification middleware
-│   ├── routes/
-│   │   ├── faq.routes.js     # FAQ CRUD + voting endpoints
-│   │   ├── ai.routes.js      # Semantic search + LLM refinement
-│   │   ├── query.routes.js   # Support ticket management
-│   │   └── admin.routes.js   # Analytics, gaps, rage session detection
-│   └── services/
-│       ├── cache.service.js  # LRU cache (5-min TTL, max 1 entry)
-│       └── embedding.service.js # OpenAI embedding generation
-├── samagama_openclaw_master_pipeline.md # Full feature specification
-└── README.md
-```
+### 1. Yaksha AI — The Intelligent Gatekeeper & Assistant
+* **Conversational Support**: A friendly AI assistant that answers questions using Retrieval-Augmented Generation (RAG).
+* **3-Tier Confidence Pipeline**: 
+  * *Tier 1 (High Confidence)*: Returns the official database answer instantly.
+  * *Tier 2 (Medium Confidence)*: Uses LLM reasoning to synthesize multiple related FAQs into a cohesive answer.
+  * *Tier 3 (Low Confidence)*: Gracefully escalates the user to raise a support ticket.
+* **Automated Moderation**: Yaksha acts as a gatekeeper for community contributions, analyzing answers for substantive value, rejecting spam, and flagging borderline cases for admin review.
+
+### 2. Community Hub
+* **Crowdsourced Knowledge**: Users can view unresolved support queries and submit proposed answers.
+* **Continuous Improvement**: The community can suggest better answers to existing FAQs.
+* **Hash Tracking**: Contributors receive a unique tracking hash to follow their suggestion's journey through the moderation pipeline.
+
+### 3. Admin Intelligence Dashboard
+* **Knowledge Gaps**: Automatically identifies and groups frequent user searches that yield no FAQ results, allowing admins to draft new FAQs with one click.
+* **Rage Session Detection**: Detects frustrated users repeatedly searching variations of the same failing query, alerting admins to immediate UX or documentation gaps.
+* **Confidence Heatmap**: Visualizes the AI's success rate across different categories.
+* **Centralized Moderation**: Approve, reject, or edit community submissions and directly reply to user support tickets.
+
+### 4. "Apple Future" UI/UX
+* **Seamless Dark/Light Mode**: First-class theming support with targeted CSS transitions.
+* **Fluid Animations**: Powered by Framer Motion for buttery-smooth page transitions, modal popups, and expanding bento grids.
+* **Markdown Rendering**: Beautifully formatted code snippets and rich text via `ReactMarkdown`.
 
 ---
 
-## 🔌 API Endpoints
+## 🛠 Tech Stack
 
-### FAQ Routes (`/api/faq`)
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/api/faq` | List all published FAQs (cached, 5-min TTL) |
-| `GET` | `/api/faq/onboarding` | Get top 5 onboarding FAQs |
-| `GET` | `/api/faq/:id` | Get single FAQ (full answer) |
-| `GET` | `/api/faq/:id/history` | Get version history for an FAQ |
-| `POST` | `/api/faq` | Create new FAQ (generates embedding) |
-| `PUT` | `/api/faq/:id` | Update FAQ (logs history, regenerates embedding) |
-| `POST` | `/api/faq/:id/vote` | Submit helpful/not helpful feedback |
-
-### AI Routes (`/api/ai`)
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `POST` | `/api/ai/ask` | Semantic search + LLM refinement + escalation routing |
-
-### Query Routes (`/api/query`)
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `POST` | `/api/query` | Submit a support ticket |
-| `GET` | `/api/query/:id` | Get ticket by ID |
-| `PATCH` | `/api/query/:id` | Update ticket status (auto-generates FAQ on close) |
-
-### Admin Routes (`/api/admin`) — require `x-admin-key` header
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/api/admin/heatmap` | Avg confidence score per FAQ category |
-| `GET` | `/api/admin/gaps` | Top 20 failed search queries (no match) |
-| `GET` | `/api/admin/rage-sessions` | Queries with ≥4 failed attempts in 2 min |
-| `GET` | `/api/admin/popular` | Most searched FAQs by volume |
-
----
-
-## 🤖 AI Search Logic (Yaksha Intelligence)
-
-The `/api/ai/ask` endpoint implements a **3-tier confidence pipeline**:
-
-```
-User Query
-    │
-    ▼
-Generate embedding (text-embedding-3-small)
-    │
-    ▼
-Vector search with temporal decay
-(cosine similarity × freshness weight)
-    │
-    ├─► Score ≥ 0.96 → Return direct DB answer
-    │   (source: "db")
-    │
-    ├─► Score 0.70–0.95 → LLM refinement via GPT-3.5-turbo
-    │   (source: "llm")
-    │
-    └─► Score < 0.70 → Escalate to support ticket
-        (source: "escalation")
-```
-
-**Temporal Decay Formula:**
-```
-confidence = (1 - cosine_distance) × (1 - 0.01 × max(0, days_since_update - 60))
-```
-FAQs older than 60 days get progressively penalized to surface fresher content.
-
----
-
-## 📄 Pages & Features
-
-### 1. FAQ Portal (`/`)
-- **Onboarding Checklist** — 5 curated FAQs shown to first-time visitors (stored in `localStorage` to dismiss)
-- **Hero Search Bar** — real-time suggestions as user types, shows confidence %
-- **No-Results Prompt** — when search yields nothing, suggests asking Yaksha AI
-- **FAQ Bento Grid** — category sidebar filters + expandable cards with:
-  - Risk level badge (low/medium/high)
-  - Stale info indicator (>90 days old)
-  - Thumbs up/down feedback
-  - Version history modal (previous vs current answer diff)
-- **Frequently Asked Tiers** — ranked by search volume: Most Searched, Frequently Asked, Other Popular
-
-### 2. Yaksha AI (`/yaksha`)
-- **Chat interface** with markdown rendering (ReactMarkdown + rehype-sanitize)
-- **Confidence sparkline** — real-time SVG graph of recent query confidence scores
-- **Escape hatch banner** — triggers when:
-  - Confidence score drops below 50%
-  - 3+ queries in under 8 seconds (rage detection)
-  - Backend returns `source: "escalation"`
-- **Related FAQs** — top 3 semantic matches shown as clickable cards below each AI response
-- **Pre-fill support** — accepts `?query=` state from FAQPortal
-
-### 3. Escalation Form (`/escalate`)
-- **Auto pre-fill** — description field populated from last failed Yaksha session
-- **Duplicate detection** — live check against knowledge base as user types subject
-- **Quality Meter** — scores description quality out of 5 (words > 20, has `?`, expected/actual/should/but keywords, length > 100, subject words ≥ 3)
-- **Submit gates** — requires score ≥ 2 before enabling submission
-- **Success state** — displays ticket tracking ID
-
-### 4. Admin Dashboard (`/admin`)
-- **Auth gate** — password prompt; key stored in `localStorage`, verified on each request
-- **Confidence Heatmap** — table of categories sorted by weakest first, color-coded (green ≥85%, amber 70–84%, red <70%)
-- **Knowledge Gaps** — failed queries table with "Draft FAQ" action button → opens modal with pre-filled question + category/risk/onboarding toggles
-- **Rage Sessions Alert** — red banner with flame icon, auto-refreshes every 60 seconds
-- **Toast notifications** — slide-in success/error toasts
-
----
-
-## 🗄️ Database Schema
-
-**Tables:**
-- `faqs` — main FAQ store (question, answer, short_answer, embedding vector(1536), category, risk_level, is_onboarding_faq, status, timestamps)
-- `faq_history` — audit trail of answer changes
-- `queries` — support tickets (email, subject, description, status enum: open/review/closed)
-- `search_logs` — every search event logged (query_text, matched_faq_id, confidence_score, source)
-
-**Indexes:**
-- IVFFlat index on `faqs.embedding` for fast cosine similarity search
-- Indexes on `search_logs.matched_faq_id` and `search_logs.timestamp`
-- Partial index on `faqs.is_onboarding_faq` for filtered onboarding queries
+* **Frontend**: React.js (Vite), Tailwind CSS, Framer Motion, React Router, Lucide React.
+* **Backend**: Node.js, Express.js.
+* **Database**: PostgreSQL (Neon Serverless) with **`pgvector`** for semantic search and embeddings.
+* **AI/LLM**: OpenAI / Groq APIs for generation and evaluation.
 
 ---
 
 ## 🚀 Getting Started
 
-### 1. Install dependencies
+### Prerequisites
+* Node.js (v18+)
+* PostgreSQL database with `pgvector` extension enabled (Neon.tech recommended)
+* OpenAI / Groq API Key
 
+### Installation
+
+1. **Clone the repository:**
+   ```bash
+   git clone https://github.com/vicharanashala/cs3.git
+   cd cs3
+   ```
+
+2. **Install Frontend Dependencies:**
+   ```bash
+   npm install
+   ```
+
+3. **Install Backend Dependencies:**
+   ```bash
+   cd server
+   npm install
+   ```
+
+4. **Environment Variables:**
+   Create a `.env` file in the `/server` directory:
+   ```env
+   PORT=8080
+   DATABASE_URL=postgres://user:pass@host/dbname
+   OPENAI_API_KEY=your_api_key
+   OPENAI_BASE_URL=https://api.groq.com/openai/v1 # Or leave blank for default OpenAI
+   OPENAI_MODEL=llama-3.1-8b-instant
+   ADMIN_KEY=your_secure_admin_password
+   ```
+
+5. **Initialize Database:**
+   Ensure your PostgreSQL instance is running and execute the `server/db/schema.sql` file to create the necessary tables, types, and vector indices.
+
+### Running the Application
+
+**Start the Backend:**
 ```bash
-# Backend
 cd server
-npm install
-
-# Frontend
-cd ..
-npm install
+npm run dev
 ```
 
-### 2. Configure environment
-
+**Start the Frontend:**
 ```bash
-cd server
-cp .env.example .env
-# Edit .env with your values:
-#   DATABASE_URL=postgresql://user:pass@host/db?sslmode=require
-#   OPENAI_API_KEY=sk-...
-#   ADMIN_KEY=your-secret-key
-#   NODE_ENV=development
+# In the root directory
+npm run dev
 ```
 
-### 3. Set up database
+The application will be available at `http://localhost:5173` (Frontend) and `http://localhost:8080` (Backend).
 
-Run `server/db/schema.sql` against your NeonDB database to create all tables, enums, and indexes.
+---
 
-### 4. Start development servers
+## 📂 Project Architecture
 
-```bash
-# Terminal 1 — Backend
-cd server
-npm run dev   # runs node --watch index.js on port 3001
-
-# Terminal 2 — Frontend
-npm run dev   # Vite on port 5173
+```
+samagama-faq/
+├── server/
+│   ├── db/            # Neon DB connection & schema (pgvector)
+│   ├── routes/        # Express routes (ai, admin, faq, community)
+│   ├── services/      # Yaksha evaluation, Embeddings, Caching
+│   └── index.js       # Express server entry point
+├── src/
+│   ├── components/    # Reusable UI (QualityMeter, etc.)
+│   ├── pages/         # FAQPortal, YakshaAI, AdminDashboard, CommunityHub
+│   ├── services/      # Axios API client
+│   ├── store/         # React Context (State & Theme management)
+│   └── App.jsx        # Routing and Layout
+└── tailwind.config.js # Theming and Design System
 ```
 
 ---
 
-## 🔐 Security
+## 🤝 Contributing
+As a community-driven platform, we welcome contributions! Whether it's adding new FAQs via the Community Hub, reporting bugs, or submitting pull requests for UI enhancements, your input builds a better Samagama.
 
-- Admin routes protected by `x-admin-key` header verification middleware
-- API key stored server-side only (never exposed to client)
-- CORS restricted to `localhost:5173` in development, `FRONTEND_URL` in production
-- All user input validated and sanitized before DB insertion
-- Markdown in Yaksha AI responses sanitized via `rehype-sanitize`
-
----
-
-## 📦 Tech Stack
-
-| Layer | Technology |
-|-------|-----------|
-| Frontend Framework | React 18 + Vite |
-| Styling | Tailwind CSS |
-| Animations | Framer Motion |
-| Routing | React Router v6 |
-| HTTP Client | Axios (with interceptors) |
-| Backend | Express.js (ES Modules) |
-| Database | NeonDB PostgreSQL + pgvector |
-| AI | OpenAI SDK (embeddings + chat) |
-| Caching | lru-cache v10 |
-| Icons | Lucide React |
-| Markdown | ReactMarkdown + rehype-sanitize |
+## 📄 License
+Internal Proprietary Software - VINS / Samagama Ecosystem.
